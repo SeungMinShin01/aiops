@@ -1,4 +1,4 @@
-package main.java.dev.aiops.protocol;
+package dev.aiops.protocol;
 
 /**
  * 보내는 앱이 누구인지.
@@ -6,8 +6,8 @@ package main.java.dev.aiops.protocol;
  * hostHash: 호스트명의 SHA-256 앞 12자. 호스트명 원문은 보내지 않는다
  */
 public record AppInfo(
-        String name,
-        String commit,
-        Boolean dirty,
-        String hostHash) {
+                String name,
+                String commit,
+                Boolean dirty,
+                String hostHash) {
 }

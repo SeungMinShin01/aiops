@@ -1,4 +1,4 @@
-package main.java.dev.aiops.protocol;
+package dev.aiops.protocol;
 
 /** Starter와 서버가 같이 쓰는 상수. 바꾸면 양쪽 다 바꿔야 하므로 여기 한 곳에만 */
 public final class ProtocolConstants {

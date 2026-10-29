@@ -1,4 +1,4 @@
-package main.java.dev.aiops.protocol;
+package dev.aiops.protocol;
 
 import java.util.List;
 
