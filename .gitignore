@@ -22,3 +22,8 @@ infra/prod/.env
 
 # 로그
 *.log
+
+# Claude
+.claude/
+claude-output/
+claudoutput/
