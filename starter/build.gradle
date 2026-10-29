@@ -1,0 +1,24 @@
+apply plugin: 'io.spring.dependency-management'
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+    }
+}
+
+dependencies {
+    implementation project(':protocol')
+
+    // 팀 앱이 이미 갖고 있는 것만 compileOnly. Starter는 새 의존성을 가져오지 않는다 (규칙 3)
+    compileOnly 'org.springframework.boot:spring-boot'
+    compileOnly 'org.springframework:spring-context'
+    compileOnly 'ch.qos.logback:logback-classic'
+    compileOnly 'com.fasterxml.jackson.core:jackson-databind'
+
+    testImplementation 'org.springframework.boot:spring-boot'
+    testImplementation 'org.springframework:spring-context'
+    testImplementation 'ch.qos.logback:logback-classic'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
