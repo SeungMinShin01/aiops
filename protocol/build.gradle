@@ -1,0 +1,5 @@
+// 순수 Java record만. 의존성 없음 (Spring·Jackson·Logback 금지)
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
