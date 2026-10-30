@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: aiops-postgres
+    ports:
+      - "127.0.0.1:5432:5432" # 내 PC에서만 접속
+    environment:
+      POSTGRES_DB: aiops
+      POSTGRES_USER: postgres # 슈퍼유저. 계정 3개를 만드는 init 스크립트용
+      POSTGRES_PASSWORD: postgres
+      AIOPS_OWNER_PASSWORD: owner_local
+      AIOPS_APP_PASSWORD: app_local
+      GRAFANA_RO_PASSWORD: grafana_local
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - aiops-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aiops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  aiops-pgdata:
