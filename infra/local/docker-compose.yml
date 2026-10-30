@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: aiops-postgres
+    restart: unless-stopped
     ports:
       - "127.0.0.1:5432:5432" # 내 PC에서만 접속
     environment:
