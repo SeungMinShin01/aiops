@@ -1,0 +1,9 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aiops
+    username: aiops_app
+    password: app_local
+  flyway:
+    user: aiops_owner
+    password: owner_local
+    locations: classpath:db/migration,classpath:db/seed # 로컬에서만 시드 포함
