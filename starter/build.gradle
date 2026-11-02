@@ -1,3 +1,4 @@
+apply plugin: 'java-library'                     // api 의존성을 쓰려면 필요
 apply plugin: 'io.spring.dependency-management'
 
 dependencyManagement {
@@ -7,17 +8,19 @@ dependencyManagement {
 }
 
 dependencies {
-    implementation project(':protocol')
+    // 팀 앱이 protocol을 따로 넣지 않아도 컴파일 시점에 보이도록 api
+    api project(':protocol')
 
     // 팀 앱이 이미 갖고 있는 것만 compileOnly. Starter는 새 의존성을 가져오지 않는다 (규칙 3)
+    // JSON은 자체 JsonWriter. Jackson은 쓰지 않는다 (D-085)
     compileOnly 'org.springframework.boot:spring-boot'
     compileOnly 'org.springframework:spring-context'
     compileOnly 'ch.qos.logback:logback-classic'
-    compileOnly 'com.fasterxml.jackson.core:jackson-databind'
 
     testImplementation 'org.springframework.boot:spring-boot'
     testImplementation 'org.springframework:spring-context'
     testImplementation 'ch.qos.logback:logback-classic'
+    // JsonWriter 왕복 테스트용 (테스트에서만. Starter 본체에는 들어가지 않음)
     testImplementation 'com.fasterxml.jackson.core:jackson-databind'
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
