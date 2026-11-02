@@ -1,0 +1,6 @@
+# --spring.profiles.active=fail 로 실행하면 시작 실패를 재현한다 (DB 연결 실패)
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:1/nope
+    hikari:
+      connection-timeout: 2000 # 오래 기다리지 않고 바로 실패
