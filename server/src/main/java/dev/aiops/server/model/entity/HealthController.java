@@ -1,4 +1,4 @@
-package dev.aiops.server;
+package dev.aiops.server.model.entity;
 
 import java.util.Map;
 
