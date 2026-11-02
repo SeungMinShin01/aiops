@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: aiops-server
+  profiles:
+    default: local              # 아무것도 안 주면 local로 뜬다
+
+  datasource:                   # 서버 런타임 = app 계정 (테이블 소유자 아님 → 11단계 RLS 대상)
+    url: ${AIOPS_DB_URL}
+    username: ${AIOPS_DB_APP_USER}
+    password: ${AIOPS_DB_APP_PASSWORD}
+
+  flyway:                       # 마이그레이션 = owner 계정 (테이블 소유자)
+    user: ${AIOPS_DB_OWNER_USER}
+    password: ${AIOPS_DB_OWNER_PASSWORD}
+    locations: classpath:db/migration
+
+  jpa:
+    open-in-view: false         # 요청 끝까지 DB 연결을 붙잡지 않는다
+    hibernate:
+      ddl-auto: validate        # 테이블은 Flyway만 만든다. JPA는 맞는지 검사만
+
+server:
+  port: 8080
