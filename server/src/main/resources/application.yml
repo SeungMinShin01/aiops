@@ -21,3 +21,7 @@ spring:
 
 server:
   port: 8080
+
+aiops:
+  notify:
+    per-minute: 10              # 팀별 분당 디스코드 알림 상한. 넘으면 버린다 (AI-59)
