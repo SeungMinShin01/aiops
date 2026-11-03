@@ -21,3 +21,13 @@
 <!-- Jira 하위 작업의 "확인" 칸을 그대로 옮겨서 체크 -->
 
 - [ ]
+
+## 격리 점검표 (DB·서버 데이터 접근을 바꿨을 때만)
+
+- [ ] 서버 접속 계정(aiops_app)이 테이블 소유자가 아님
+- [ ] tenant_id가 있는 팀 테이블 전부에 정책 `tenant_isolation`
+- [ ] 정책에 USING과 WITH CHECK 둘 다
+- [ ] `set_config('app.tenant_id', ?, true)` — 세 번째 인자 true
+- [ ] `NULLIF(current_setting('app.tenant_id', true), '')`
+- [ ] TenantContext를 set한 곳이 finally에서 clear
+- [ ] 다른 스레드로 넘길 때 tenantId는 파라미터로 (ThreadLocal 복사 금지)
