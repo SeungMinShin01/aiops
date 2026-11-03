@@ -25,3 +25,9 @@ server:
 aiops:
   notify:
     per-minute: 10              # 팀별 분당 디스코드 알림 상한. 넘으면 버린다 (AI-59)
+  discord:                      # 값은 전부 환경변수 (규칙 10). 비어 있으면 디스코드 연동은 건너뛴다 (테스트·CI가 값 없이 뜨도록 기본값 빈 문자열)
+    guild-id: ${AIOPS_DISCORD_GUILD_ID:}
+    bot-token: ${AIOPS_DISCORD_BOT_TOKEN:}
+    client-id: ${AIOPS_DISCORD_CLIENT_ID:}
+    client-secret: ${AIOPS_DISCORD_CLIENT_SECRET:}
+    redirect-uri: ${AIOPS_DISCORD_REDIRECT_URI:http://localhost:8080/api/discord/callback}
