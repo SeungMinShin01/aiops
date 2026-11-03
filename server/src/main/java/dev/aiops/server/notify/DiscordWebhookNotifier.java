@@ -34,20 +34,23 @@ public class DiscordWebhookNotifier implements Notifier {
     private final TenantRepository tenants;
     private final ErrorGroupRepository groups;
     private final DiscordEmbedBuilder embedBuilder;
+    private final NotifyRateLimiter rateLimiter;
     private final RestClient restClient;
 
     @Autowired
     public DiscordWebhookNotifier(TenantRepository tenants, ErrorGroupRepository groups,
-            DiscordEmbedBuilder embedBuilder) {
-        this(tenants, groups, embedBuilder, RestClient.builder().requestFactory(timeoutFactory()).build());
+            DiscordEmbedBuilder embedBuilder, NotifyRateLimiter rateLimiter) {
+        this(tenants, groups, embedBuilder, rateLimiter,
+                RestClient.builder().requestFactory(timeoutFactory()).build());
     }
 
     /** 테스트에서 MockRestServiceServer에 묶은 RestClient를 넣기 위한 생성자. */
     DiscordWebhookNotifier(TenantRepository tenants, ErrorGroupRepository groups,
-            DiscordEmbedBuilder embedBuilder, RestClient restClient) {
+            DiscordEmbedBuilder embedBuilder, NotifyRateLimiter rateLimiter, RestClient restClient) {
         this.tenants = tenants;
         this.groups = groups;
         this.embedBuilder = embedBuilder;
+        this.rateLimiter = rateLimiter;
         this.restClient = restClient;
     }
 
@@ -69,17 +72,26 @@ public class DiscordWebhookNotifier implements Notifier {
             }
             env = group.getFirstEnv();
 
-            // 1. env에 맞는 웹훅 주소 (15단계 전까지는 로컬 DB에 psql로 직접 넣는다)
+            // 1. 채널 선택: env에 맞는 웹훅 (15단계 전까지는 로컬 DB에 psql로 직접 넣는다)
+            //    env는 그룹의 env = 키의 env (Starter가 보낸 값이 아니라 수집 단계에서 키로 정한 값)
             TenantEntity tenant = tenants.findById(tenantId).orElse(null);
             String webhook = (tenant == null) ? null : webhookFor(tenant, env);
             if (webhook == null || webhook.isBlank()) {
                 log.info("알림 생략: 웹훅 미설정 tenantId={} env={}", tenantId, env);
                 return;
             }
+            // local 알림은 팀이 끌 수 있다. prod는 항상 보낸다 (prod 끄기는 범위 밖)
+            if ("local".equals(env) && !tenant.isNotifyLocal()) {
+                log.debug("알림 생략: local 알림 꺼짐 tenantId={}", tenantId);
+                return;
+            }
 
-            // 2·3. notify_local 끄기와 분당 제한은 AI-59에서 여기에 들어간다
+            // 2. 팀별 분당 상한. 넘으면 버린다 (큐에 모아 두지 않음)
+            if (!rateLimiter.tryAcquire(tenantId)) {
+                return;
+            }
 
-            // 4. embed 조립, 5. 전송
+            // 3. embed 조립 후 전송
             Map<String, Object> body = embedBuilder.build(group);
             restClient.post()
                     .uri(URI.create(webhook))
