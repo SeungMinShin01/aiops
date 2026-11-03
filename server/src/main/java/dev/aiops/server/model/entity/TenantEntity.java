@@ -62,6 +62,10 @@ public class TenantEntity {
     @Column(name = "discord_status", nullable = false, columnDefinition = "text")
     private DiscordStatus discordStatus = DiscordStatus.NONE;
 
+    // 채널 자동 생성 실패 단계 "<단계명>:<status>" (AI-92). 웹훅 url·토큰은 절대 넣지 않는다
+    @Column(name = "discord_error", length = 100)
+    private String discordError;
+
     public TenantEntity(String name) {
         this.name = name;
         this.createdAt = Instant.now();

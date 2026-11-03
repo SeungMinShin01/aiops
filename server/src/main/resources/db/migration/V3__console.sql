@@ -71,7 +71,8 @@ ALTER TABLE tenant
     ADD COLUMN discord_channel_local_id  TEXT,
     ADD COLUMN discord_channel_prod_id   TEXT,
     ADD COLUMN discord_status            TEXT NOT NULL DEFAULT 'NONE'
-        CHECK (discord_status IN ('NONE', 'READY', 'FAILED'));
+        CHECK (discord_status IN ('NONE', 'READY', 'FAILED')),
+    ADD COLUMN discord_error             VARCHAR(100);   -- 채널 자동 생성 실패 단계 "<단계명>:<status>" (AI-92). 웹훅 url·토큰은 넣지 않는다
 
 -- API 키: 기존 행의 새 컬럼은 NULL (시드 키는 created_by 없음)
 ALTER TABLE api_key
@@ -97,5 +98,5 @@ GRANT SELECT (id, tenant_id, role, max_uses, used_count, expires_at, created_by,
 
 -- tenant·api_key에 이번에 추가한 컬럼 (민감하지 않음)
 GRANT SELECT (cohort_id, project_end_date, status, discord_role_id, discord_category_id,
-              discord_channel_local_id, discord_channel_prod_id, discord_status) ON tenant TO grafana_ro;
+              discord_channel_local_id, discord_channel_prod_id, discord_status, discord_error) ON tenant TO grafana_ro;
 GRANT SELECT (key_prefix, created_by, last_used_at) ON api_key TO grafana_ro;
