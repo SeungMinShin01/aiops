@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "tenant")
@@ -31,6 +32,35 @@ public class TenantEntity {
 
     @Column(name = "created_at", nullable = false, columnDefinition = "timestamptz")
     private Instant createdAt;
+
+    // ---- V3 (콘솔) ----
+
+    @Column(name = "cohort_id")
+    private Long cohortId;
+
+    @Column(name = "project_end_date")
+    private LocalDate projectEndDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "text")
+    private TenantStatus status = TenantStatus.ACTIVE;
+
+    // 디스코드 자원 id (15단계 Provisioner가 채운다. 웹훅 주소는 위 V1 컬럼)
+    @Column(name = "discord_role_id", columnDefinition = "text")
+    private String discordRoleId;
+
+    @Column(name = "discord_category_id", columnDefinition = "text")
+    private String discordCategoryId;
+
+    @Column(name = "discord_channel_local_id", columnDefinition = "text")
+    private String discordChannelLocalId;
+
+    @Column(name = "discord_channel_prod_id", columnDefinition = "text")
+    private String discordChannelProdId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discord_status", nullable = false, columnDefinition = "text")
+    private DiscordStatus discordStatus = DiscordStatus.NONE;
 
     public TenantEntity(String name) {
         this.name = name;

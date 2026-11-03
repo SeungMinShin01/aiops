@@ -36,6 +36,19 @@ public class ApiKeyEntity {
     @Column(name = "created_at", nullable = false, columnDefinition = "timestamptz")
     private Instant createdAt;
 
+    // ---- V3 (콘솔) ----
+
+    // 콘솔 키 목록 표시용 앞자리 (예: aiops_l_ab12). 원문이 아니고 복원 불가능한 길이
+    @Column(name = "key_prefix", length = 16)
+    private String keyPrefix;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    // 키 캐시(AI-74)가 있을 때만 1분에 최대 1회 갱신 (채우는 코드는 14단계)
+    @Column(name = "last_used_at", columnDefinition = "timestamptz")
+    private Instant lastUsedAt;
+
     public ApiKeyEntity(Long tenantId, String keyHash, String env) {
         this.tenantId = tenantId;
         this.keyHash = keyHash;
