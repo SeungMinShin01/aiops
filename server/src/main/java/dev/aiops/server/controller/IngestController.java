@@ -35,7 +35,8 @@ public class IngestController {
         // 2. 검증 (100개 초과면 TooManyEventsException → 400)
         ingestService.validate(batch);
 
-        // 3. 저장은 뒤 단계(store)에서 key 를 써서 추가함
+        // 3. 저장 (키로 정한 팀·env 를 씀. 본문의 env 는 믿지 않음)
+        ingestService.store(key.tenantId(), key.env(), batch);
 
         // 4. 202 Accepted, 본문 없음
         return ResponseEntity.accepted().build();
