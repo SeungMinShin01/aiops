@@ -44,15 +44,21 @@ class DiscordWebhookNotifierTest {
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = RestClient.builder();
-        server = MockRestServiceServer.bindTo(builder).build();
-        notifier = new DiscordWebhookNotifier(tenants, groups, new DiscordEmbedBuilder(), builder.build());
+        notifier = notifierWithLimit(100);
 
         tenant = new TenantEntity("테스트 팀");
         ReflectionTestUtils.setField(tenant, "id", 1L);
         ReflectionTestUtils.setField(tenant, "discordWebhookLocal", LOCAL_HOOK);
         ReflectionTestUtils.setField(tenant, "discordWebhookProd", PROD_HOOK);
         when(tenants.findById(1L)).thenReturn(Optional.of(tenant));
+    }
+
+    /** 분당 상한을 정해서 알림 부품을 새로 만든다. 가짜 디스코드(server)도 새로 묶인다. */
+    private DiscordWebhookNotifier notifierWithLimit(int perMinute) {
+        RestClient.Builder builder = RestClient.builder();
+        server = MockRestServiceServer.bindTo(builder).build();
+        return new DiscordWebhookNotifier(tenants, groups, new DiscordEmbedBuilder(),
+                new NotifyRateLimiter(perMinute), builder.build());
     }
 
     private void givenGroup(long groupId, long tenantId, String env) {
@@ -78,23 +84,57 @@ class DiscordWebhookNotifierTest {
     }
 
     @Test
-    void prod_그룹은_prod_웹훅으로_보낸다() {
-        givenGroup(11L, 1L, "prod");
+    void choosesWebhookByEnv() {
+        givenGroup(20L, 1L, "prod");
+        givenGroup(21L, 1L, "local");
         server.expect(requestTo(PROD_HOOK)).andRespond(withNoContent());
+        server.expect(requestTo(LOCAL_HOOK)).andRespond(withNoContent());
 
-        notifier.notifyNewGroup(1L, 11L);
+        notifier.notifyNewGroup(1L, 20L);
+        notifier.notifyNewGroup(1L, 21L);
 
         server.verify();
     }
 
     @Test
-    void 웹훅이_없으면_보내지_않는다() {
-        ReflectionTestUtils.setField(tenant, "discordWebhookLocal", null);
-        givenGroup(12L, 1L, "local");
+    void notifyLocalOff() {
+        ReflectionTestUtils.setField(tenant, "notifyLocal", false);
+        givenGroup(22L, 1L, "local");
+        givenGroup(23L, 1L, "prod");
+        server.expect(requestTo(PROD_HOOK)).andRespond(withNoContent()); // prod 1건만 기대
 
-        notifier.notifyNewGroup(1L, 12L);
+        notifier.notifyNewGroup(1L, 22L); // local → 안 보냄
+        notifier.notifyNewGroup(1L, 23L); // prod → 보냄
+
+        server.verify(); // local 요청이 갔다면 기대하지 않은 요청이라 실패한다
+    }
+
+    @Test
+    void missingWebhook() {
+        ReflectionTestUtils.setField(tenant, "discordWebhookLocal", null);
+        ReflectionTestUtils.setField(tenant, "discordWebhookProd", null);
+        givenGroup(24L, 1L, "local");
+        givenGroup(25L, 1L, "prod");
+
+        assertThatCode(() -> {
+            notifier.notifyNewGroup(1L, 24L);
+            notifier.notifyNewGroup(1L, 25L);
+        }).doesNotThrowAnyException();
 
         server.verify(); // 요청이 하나라도 가면 MockRestServiceServer가 실패시킨다
+    }
+
+    @Test
+    void 분당_상한을_넘은_알림은_버린다() {
+        notifier = notifierWithLimit(1);
+        givenGroup(26L, 1L, "local");
+        givenGroup(27L, 1L, "local");
+        server.expect(requestTo(LOCAL_HOOK)).andRespond(withNoContent()); // 1건만 기대
+
+        notifier.notifyNewGroup(1L, 26L);
+        notifier.notifyNewGroup(1L, 27L); // 상한 초과 → 버림
+
+        server.verify();
     }
 
     @Test
