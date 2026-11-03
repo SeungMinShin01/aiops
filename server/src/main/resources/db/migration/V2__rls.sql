@@ -38,3 +38,20 @@ ALTER TABLE heartbeat_last ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON heartbeat_last
     USING      (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint)
     WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint);
+
+-- ============================================================================
+-- Grafana 구역 (AI-75): grafana_ro는 BYPASSRLS(01-roles.sh)로 전체 팀을 읽지만 민감 컬럼은 못 읽는다
+--   01-roles.sh의 DEFAULT PRIVILEGES가 테이블 단위 SELECT를 주므로, 민감 컬럼이 있는 테이블은
+--   테이블 SELECT를 회수하고 민감하지 않은 컬럼만 컬럼 단위로 다시 준다.
+--   ⚠ 규칙: 컬럼 단위 권한은 나중에 추가한 컬럼에 자동으로 붙지 않는다 (DEFAULT PRIVILEGES는 새 테이블만).
+--     이후 마이그레이션에서 tenant·api_key(·invitation)에 컬럼을 추가하면, 민감하지 않은 컬럼은
+--     같은 마이그레이션에서 GRANT SELECT (컬럼) ON ... TO grafana_ro 를 명시한다.
+-- ============================================================================
+
+-- api_key: key_hash 제외
+REVOKE SELECT ON api_key FROM grafana_ro;
+GRANT SELECT (id, tenant_id, env, revoked_at, created_at) ON api_key TO grafana_ro;
+
+-- tenant: discord_webhook_local / discord_webhook_prod 제외 (아는 사람은 누구나 메시지를 보낼 수 있는 비밀값)
+REVOKE SELECT ON tenant FROM grafana_ro;
+GRANT SELECT (id, name, notify_local, created_at) ON tenant TO grafana_ro;
