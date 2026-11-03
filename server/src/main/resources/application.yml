@@ -21,3 +21,7 @@ spring:
 
 server:
   port: 8080
+
+aiops:
+  ingest:
+    max-body-bytes: 1048576     # 수집 요청 본문 최대 크기 1MB. 넘으면 413
