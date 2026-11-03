@@ -1,6 +1,8 @@
 package dev.aiops.server.controller;
 
 import dev.aiops.protocol.EventBatch;
+import dev.aiops.protocol.Heartbeat;      
+import dev.aiops.protocol.HelloRequest;   
 import dev.aiops.protocol.ProtocolConstants;
 import dev.aiops.server.security.ApiKeyResolver;
 import dev.aiops.server.security.ResolvedKey;
@@ -11,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
-// Starter 가 보내는 에러 묶음을 받는 문. hello·heartbeat 는 뒤 단위에서 이 클래스에 추가함
+// Starter 가 보내는 에러 묶음(AI-31)·hello·heartbeat(AI-33)를 받는 문
 @RestController
 public class IngestController {
 
@@ -39,6 +41,26 @@ public class IngestController {
         ingestService.store(key.tenantId(), key.env(), batch);
 
         // 4. 202 Accepted, 본문 없음
+        return ResponseEntity.accepted().build();
+    }
+
+    // AI-33 추가: 앱이 켜진 뒤 1번 오는 환경 정보
+    @PostMapping(ProtocolConstants.PATH_HELLO)   // POST /v1/hello
+    public ResponseEntity<Void> postHello(
+            @RequestHeader(value = ProtocolConstants.HEADER_API_KEY, required = false) String apiKey,
+            @RequestBody HelloRequest hello) {
+        ResolvedKey key = apiKeyResolver.resolve(apiKey);   // 키 실패 → 401
+        ingestService.storeHello(key.tenantId(), key.env(), hello);
+        return ResponseEntity.accepted().build();
+    }
+
+    // AI-33 추가: 60초마다 오는 "살아 있음" 신호
+    @PostMapping(ProtocolConstants.PATH_HEARTBEAT)   // POST /v1/heartbeat
+    public ResponseEntity<Void> postHeartbeat(
+            @RequestHeader(value = ProtocolConstants.HEADER_API_KEY, required = false) String apiKey,
+            @RequestBody Heartbeat heartbeat) {
+        ResolvedKey key = apiKeyResolver.resolve(apiKey);
+        ingestService.recordHeartbeat(key.tenantId(), key.env(), heartbeat);
         return ResponseEntity.accepted().build();
     }
 }

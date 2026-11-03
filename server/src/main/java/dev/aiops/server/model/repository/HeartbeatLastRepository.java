@@ -24,4 +24,19 @@ public interface HeartbeatLastRepository extends JpaRepository<HeartbeatLastEnti
                         @Param("env") String env,
                         @Param("hostHash") String hostHash,
                         @Param("appName") String appName);
+
+    // AI-33 추가: hello 용. 행이 없으면 만들고, 있으면 started_at(이번 실행 시작)과 last_seen_at 을 둘 다 지금으로 갱신
+    @Modifying
+    @Query(value = """
+            INSERT INTO heartbeat_last (tenant_id, env, host_hash, app_name, started_at, last_seen_at)
+            VALUES (:tenantId, :env, :hostHash, :appName, now(), now())
+            ON CONFLICT (tenant_id, env, host_hash)
+            DO UPDATE SET started_at = now(),
+                          last_seen_at = now(),
+                          app_name = COALESCE(EXCLUDED.app_name, heartbeat_last.app_name)
+            """, nativeQuery = true)
+    void upsertHello(@Param("tenantId") Long tenantId,
+                     @Param("env") String env,
+                     @Param("hostHash") String hostHash,
+                     @Param("appName") String appName);
 }

@@ -4,7 +4,7 @@ import dev.aiops.server.model.repository.HeartbeatLastRepository;
 import org.springframework.stereotype.Service;
 
 // "이 앱이 방금 살아 있었다"를 heartbeat_last 에 기록하는 담당자.
-// 에러 묶음(AI-31)과 hello·하트비트(AI-33)가 같이 씀. AI-31 에서 먼저 만들고 AI-33 에서는 호출만 붙임
+// 에러 묶음(AI-31)과 hello·하트비트(AI-33)가 같이 씀
 @Service
 public class HeartbeatRecorder {
 
@@ -21,5 +21,13 @@ public class HeartbeatRecorder {
             return;
         }
         heartbeatLastRepository.upsertLastSeen(tenantId, env, hostHash, appName);
+    }
+
+    // AI-33 추가: hello 를 받았을 때. 마지막 hello 시각(started_at)까지 기록. hostHash 없으면 기록 안 함(위와 같은 이유)
+    public void recordHello(Long tenantId, String env, String hostHash, String appName) {
+        if (hostHash == null || hostHash.isBlank()) {
+            return;
+        }
+        heartbeatLastRepository.upsertHello(tenantId, env, hostHash, appName);
     }
 }
