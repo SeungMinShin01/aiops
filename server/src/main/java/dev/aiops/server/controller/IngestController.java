@@ -1,11 +1,12 @@
 package dev.aiops.server.controller;
 
 import dev.aiops.protocol.EventBatch;
-import dev.aiops.protocol.Heartbeat;      
-import dev.aiops.protocol.HelloRequest;   
+import dev.aiops.protocol.Heartbeat;
+import dev.aiops.protocol.HelloRequest;
 import dev.aiops.protocol.ProtocolConstants;
 import dev.aiops.server.security.ApiKeyResolver;
 import dev.aiops.server.security.ResolvedKey;
+import dev.aiops.server.service.HelloService;
 import dev.aiops.server.service.IngestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,10 +20,14 @@ public class IngestController {
 
     private final ApiKeyResolver apiKeyResolver;
     private final IngestService ingestService;
+    private final HelloService helloService;
 
-    public IngestController(ApiKeyResolver apiKeyResolver, IngestService ingestService) {
+    public IngestController(ApiKeyResolver apiKeyResolver,
+                            IngestService ingestService,
+                            HelloService helloService) {
         this.apiKeyResolver = apiKeyResolver;
         this.ingestService = ingestService;
+        this.helloService = helloService;
     }
 
     @PostMapping(ProtocolConstants.PATH_EVENTS)   // POST /v1/events
@@ -44,23 +49,23 @@ public class IngestController {
         return ResponseEntity.accepted().build();
     }
 
-    // AI-33 추가: 앱이 켜진 뒤 1번 오는 환경 정보
+    // AI-33 : 앱이 켜진 뒤 1번 오는 환경 정보를 저장함
     @PostMapping(ProtocolConstants.PATH_HELLO)   // POST /v1/hello
     public ResponseEntity<Void> postHello(
             @RequestHeader(value = ProtocolConstants.HEADER_API_KEY, required = false) String apiKey,
             @RequestBody HelloRequest hello) {
         ResolvedKey key = apiKeyResolver.resolve(apiKey);   // 키 실패 → 401
-        ingestService.storeHello(key.tenantId(), key.env(), hello);
+        helloService.storeHello(key.tenantId(), key.env(), hello);
         return ResponseEntity.accepted().build();
     }
 
-    // AI-33 추가: 60초마다 오는 "살아 있음" 신호
+    // AI-33 : 60초마다 오는 "살아 있음" 신호를 기록함
     @PostMapping(ProtocolConstants.PATH_HEARTBEAT)   // POST /v1/heartbeat
     public ResponseEntity<Void> postHeartbeat(
             @RequestHeader(value = ProtocolConstants.HEADER_API_KEY, required = false) String apiKey,
             @RequestBody Heartbeat heartbeat) {
         ResolvedKey key = apiKeyResolver.resolve(apiKey);
-        ingestService.recordHeartbeat(key.tenantId(), key.env(), heartbeat);
+        helloService.recordHeartbeat(key.tenantId(), key.env(), heartbeat);
         return ResponseEntity.accepted().build();
     }
 }

@@ -61,13 +61,13 @@ class IngestControllerTest extends PostgresContainerSupport {
                 + "\"events\":[" + events + "],\"droppedCount\":3}";
     }
 
-    // AI-33 추가: hello 본문 (환경 정보)
+    // AI-33 : hello 본문 (환경 정보)
     private static final String HELLO_JSON = "{\"env\":\"local\","
             + "\"app\":{\"name\":\"sample\",\"commit\":\"abc\",\"hostHash\":\"abc123def456\"},"
             + "\"javaVersion\":\"17\",\"springBootVersion\":\"4.1.1\","
             + "\"dependencies\":[],\"configKeys\":[]}";
 
-    // AI-33 추가: heartbeat 본문
+    // AI-33 : heartbeat 본문
     private static final String HEARTBEAT_JSON = "{\"env\":\"local\","
             + "\"app\":{\"name\":\"sample\",\"hostHash\":\"abc123def456\"},\"sentAt\":1700000000000}";
 
@@ -155,7 +155,7 @@ class IngestControllerTest extends PostgresContainerSupport {
         assertThat(heartbeatRows.longValue()).isEqualTo(1);
     }
 
-    // AI-33 추가: hello 를 받으면 스냅샷이 쌓이고 started_at(마지막 hello 시각)이 채워짐
+    // AI-33 : hello 를 받으면 스냅샷이 쌓이고 started_at(마지막 hello 시각)이 채워짐
     @Test
     void hello를_받으면_스냅샷이_쌓이고_마지막_hello_시각이_기록된다() throws Exception {
         mockMvc.perform(post(ProtocolConstants.PATH_HELLO)
@@ -179,7 +179,7 @@ class IngestControllerTest extends PostgresContainerSupport {
         assertThat(started.longValue()).isEqualTo(1);
     }
 
-    // AI-33 추가: heartbeat 는 last_seen 만 기록하고 스냅샷은 안 쌓음
+    // AI-33 : heartbeat 는 last_seen 만 기록하고 스냅샷은 안 쌓음
     @Test
     void heartbeat는_last_seen만_기록하고_스냅샷은_안_쌓는다() throws Exception {
         mockMvc.perform(post(ProtocolConstants.PATH_HEARTBEAT)
@@ -201,7 +201,7 @@ class IngestControllerTest extends PostgresContainerSupport {
         assertThat(snapshots.longValue()).isZero();
     }
 
-    // AI-33 추가: hello·heartbeat 도 키가 없으면 401
+    // AI-33 : hello·heartbeat 도 키가 없으면 401
     @Test
     void hello와_heartbeat도_키가_없으면_401() throws Exception {
         mockMvc.perform(post(ProtocolConstants.PATH_HELLO)
