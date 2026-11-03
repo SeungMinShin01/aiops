@@ -19,6 +19,7 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot'
     testImplementation 'org.springframework:spring-context'
+    testImplementation 'org.springframework:spring-test'
     testImplementation 'ch.qos.logback:logback-classic'
     // JsonWriter 왕복 테스트용 (테스트에서만. Starter 본체에는 들어가지 않음)
     testImplementation 'com.fasterxml.jackson.core:jackson-databind'
