@@ -11,41 +11,49 @@ import dev.aiops.server.model.entity.TenantEntity;
 import dev.aiops.server.model.repository.ApiKeyRepository;
 import dev.aiops.server.model.repository.TenantRepository;
 import dev.aiops.server.security.ApiKeyHasher;
+import dev.aiops.server.security.TenantFilter;
 import dev.aiops.server.support.PostgresContainerSupport;
-import jakarta.persistence.EntityManager;
 import java.util.Collections;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
-// 수집 창구(/v1/events)를 진짜 Postgres 로 검사. 테스트가 끝나면 DB 는 자동으로 되돌려짐(롤백)
+// 수집 창구(/v1/events)를 진짜 Postgres 로 검사.
+// V2(RLS) 이후 (AI-16에서 수정):
+// - 클래스 @Transactional 을 두지 않는다. 테스트 트랜잭션이 먼저 열리면 TenantFilter 가 팀을 넣기 전이라 set_config 가 안 들어가고 INSERT 가 RLS 에 막힌다
+// - 롤백이 없으므로 시작할 때 owner(RLS 무시)로 비우고, 결과 확인도 owner 로 읽는다
+// - 실제 서버처럼 TenantFilter 를 MockMvc 에 끼운다 (키 → 팀 → TenantContext)
 @SpringBootTest
-@Transactional
 class IngestControllerTest extends PostgresContainerSupport {
 
     private static final String RAW_KEY = "test-key-for-ingest";
 
     @Autowired WebApplicationContext context;
     @Autowired IngestBodySizeFilter bodySizeFilter;   // 413 검문소 (MockMvc 에는 직접 끼워줘야 함)
+    @Autowired TenantFilter tenantFilter;             // 키 → 팀 (MockMvc 에는 직접 끼워줘야 함)
     @Autowired TenantRepository tenants;
     @Autowired ApiKeyRepository apiKeys;
-    @Autowired EntityManager em;
 
     MockMvc mockMvc;
+    JdbcTemplate owner;   // 테이블 소유자: RLS 를 무시하고 비우기·확인용
     Long tenantId;
 
     // 각 테스트 시작 전: MockMvc 를 만들고, 팀 1개와 그 팀의 키 1개를 DB 에 넣어둠
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
-                .addFilters(bodySizeFilter)
+                .addFilters(tenantFilter, bodySizeFilter)   // 실제 순서와 같게: 팀 필터(LOWEST-10) → 크기 필터
                 .build();
+        owner = new JdbcTemplate(new DriverManagerDataSource(jdbcUrl(), OWNER_USER, OWNER_PASSWORD));
+        owner.execute("TRUNCATE error_event, error_group, app_snapshot, ingest_stat, heartbeat_last, api_key, tenant RESTART IDENTITY CASCADE");
         tenantId = tenants.save(new TenantEntity("테스트 팀")).getId();
         apiKeys.save(new ApiKeyEntity(tenantId, ApiKeyHasher.sha256Hex(RAW_KEY), "local"));
     }
@@ -123,25 +131,19 @@ class IngestControllerTest extends PostgresContainerSupport {
                 .andExpect(status().isAccepted());
 
         // ingest_stat: 받은 2, 버린 3
-        Object[] stat = (Object[]) em.createNativeQuery(
-                        "select received_count, dropped_count from ingest_stat where tenant_id = :t and env = 'local'")
-                .setParameter("t", tenantId)
-                .getSingleResult();
-        assertThat(((Number) stat[0]).longValue()).isEqualTo(2);
-        assertThat(((Number) stat[1]).longValue()).isEqualTo(3);
+        Map<String, Object> stat = owner.queryForMap(
+                "select received_count, dropped_count from ingest_stat where tenant_id = ? and env = 'local'", tenantId);
+        assertThat(((Number) stat.get("received_count")).longValue()).isEqualTo(2);
+        assertThat(((Number) stat.get("dropped_count")).longValue()).isEqualTo(3);
 
         // payload: DB 에서 JSON 필드를 꺼낼 수 있어야 함 (원본 보존)
-        Object type = em.createNativeQuery(
-                        "select payload->>'exceptionType' from error_event where tenant_id = :t limit 1")
-                .setParameter("t", tenantId)
-                .getSingleResult();
+        String type = owner.queryForObject(
+                "select payload->>'exceptionType' from error_event where tenant_id = ? limit 1", String.class, tenantId);
         assertThat(type).isEqualTo("java.lang.NullPointerException");
 
         // heartbeat_last: 이 호스트의 행이 생김
-        Number heartbeatRows = (Number) em.createNativeQuery(
-                        "select count(*) from heartbeat_last where tenant_id = :t and host_hash = 'abc123def456'")
-                .setParameter("t", tenantId)
-                .getSingleResult();
-        assertThat(heartbeatRows.longValue()).isEqualTo(1);
+        Long heartbeatRows = owner.queryForObject(
+                "select count(*) from heartbeat_last where tenant_id = ? and host_hash = 'abc123def456'", Long.class, tenantId);
+        assertThat(heartbeatRows).isEqualTo(1);
     }
 }

@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import dev.aiops.server.security.TenantContext;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
@@ -51,8 +52,10 @@ public class IngestService {
     }
 
     // 저장. 아래 4가지가 한 트랜잭션: 전부 성공하거나 하나라도 실패하면 전부 취소
+    // 팀은 TenantFilter 가 키로 정해 TenantContext 에 넣은 값만 쓴다 (AI-73). 트랜잭션이 열릴 때 바인더가 set_config → RLS WITH CHECK 통과
     @Transactional
-    public void store(Long tenantId, String env, EventBatch batch) {
+    public void store(String env, EventBatch batch) {
+        Long tenantId = TenantContext.require();
         // env 는 키의 env 를 씀. 본문의 env 와 다르면 경고만 남김
         if (batch.env() != null && !batch.env().equals(env)) {
             log.warn("env mismatch key={} body={}", env, batch.env());
