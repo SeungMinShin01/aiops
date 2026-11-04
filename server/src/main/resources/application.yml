@@ -23,10 +23,15 @@ server:
   port: 8080
 
 aiops:
+  ingest:
+    max-body-bytes: 1048576     # 수집 본문 크기 한도 (IngestBodySizeFilter, AI-31)
+  processing:
+    threads: 4                  # AI-50 : 처리 풀 스레드 수
+    queue: 1000                 # AI-50 : 처리 풀 대기줄 크기
   notify:
-    ingest:
-      max-body-bytes: 1048576 
     per-minute: 10              # 팀별 분당 디스코드 알림 상한. 넘으면 버린다 (AI-59)
+  apikey:
+    cache-ttl: 60s              # 키 캐시 유효 시간 (AI-74). 폐기는 evict로 즉시 반영, 이건 상한선
   discord:                      # 값은 전부 환경변수 (규칙 10). 비어 있으면 디스코드 연동은 건너뛴다 (테스트·CI가 값 없이 뜨도록 기본값 빈 문자열)
     guild-id: ${AIOPS_DISCORD_GUILD_ID:}
     bot-token: ${AIOPS_DISCORD_BOT_TOKEN:}

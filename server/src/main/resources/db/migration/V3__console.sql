@@ -15,7 +15,7 @@ CREATE TABLE app_user (
     github_id        BIGINT       NOT NULL UNIQUE,
     login            TEXT         NOT NULL,
     name             TEXT,
-    discord_user_id  TEXT,
+    discord_user_id  TEXT         UNIQUE,                 -- 한 디스코드 계정은 한 사용자에만 연결 (AI-93, 충돌 시 409)
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 

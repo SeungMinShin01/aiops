@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import dev.aiops.server.security.TenantContext;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
@@ -51,8 +52,10 @@ public class IngestService {
     }
 
     // 저장. 아래 4가지가 한 트랜잭션: 전부 성공하거나 하나라도 실패하면 전부 취소
+    // 팀은 TenantFilter 가 키로 정해 TenantContext 에 넣은 값만 쓴다 (AI-73). 트랜잭션이 열릴 때 바인더가 set_config → RLS WITH CHECK 통과
     @Transactional
-    public void store(Long tenantId, String env, EventBatch batch) {
+    public void store(String env, EventBatch batch) {
+        Long tenantId = TenantContext.require();
         // env 는 키의 env 를 씀. 본문의 env 와 다르면 경고만 남김
         if (batch.env() != null && !batch.env().equals(env)) {
             log.warn("env mismatch key={} body={}", env, batch.env());
@@ -79,9 +82,10 @@ public class IngestService {
                 eventIds.size(), batch.droppedCount());
 
         // ③ 이 앱이 살아 있다고 기록 (에러 묶음도 하트비트로 침, D-086)
-        heartbeatRecorder.recordSeen(tenantId, env, hostHash, appName);
+        // AI-33 : 이벤트 경로는 시작 시각을 모르니 started 에 null (기존 started_at 유지)
+        heartbeatRecorder.touch(tenantId, env, hostHash, appName, null);
 
-        // ④ 저장된 id 가 있을 때만 "저장됐다" 알림을 발행. 커밋 뒤 처리는 다음 단위(AI-32) 리스너가 함
+        // ④ 저장된 id 가 있을 때만 "저장됐다" 알림을 발행. 커밋 뒤 처리는 AI-32 리스너가 함
         if (!eventIds.isEmpty()) {
             publisher.publishEvent(new ErrorsStored(tenantId, eventIds));
         }
