@@ -38,3 +38,4 @@ aiops:
     client-id: ${AIOPS_DISCORD_CLIENT_ID:}
     client-secret: ${AIOPS_DISCORD_CLIENT_SECRET:}
     redirect-uri: ${AIOPS_DISCORD_REDIRECT_URI:http://localhost:8080/api/discord/callback}
+  state-secret: ${AIOPS_STATE_SECRET:}  # 디스코드 연결 OAuth state 서명 키 (AI-93). 비밀값 — 환경변수로만

@@ -7,6 +7,8 @@ import dev.aiops.server.config.DiscordProperties;
 import dev.aiops.server.model.entity.DiscordStatus;
 import dev.aiops.server.model.entity.TenantEntity;
 import dev.aiops.server.model.entity.TenantStatus;
+import dev.aiops.server.model.entity.AppUserEntity;
+import dev.aiops.server.model.repository.AppUserRepository;
 import dev.aiops.server.model.repository.TenantRepository;
 import dev.aiops.server.notify.Notifier;
 import org.slf4j.Logger;
@@ -57,14 +59,39 @@ public class DiscordProvisioner {
     private final DiscordApiClient api;
     private final Notifier notifier;
     private final DiscordProperties properties;
+    private final AppUserRepository appUsers;
     private final Map<Long, ReentrantLock> locks = new ConcurrentHashMap<>();
 
     public DiscordProvisioner(TenantRepository tenants, DiscordApiClient api, Notifier notifier,
-            DiscordProperties properties) {
+            DiscordProperties properties, AppUserRepository appUsers) {
         this.tenants = tenants;
         this.api = api;
         this.notifier = notifier;
         this.properties = properties;
+        this.appUsers = appUsers;
+    }
+
+    /**
+     * 팀에서 나간(내보내진) 사람의 팀 역할을 회수한다 (AI-93). 14단계 내보내기가 호출한다.
+     * 디스코드 사용자 id와 팀 역할 id가 둘 다 있을 때만. 서버에서 내쫓지는 않는다 (다른 팀 소속일 수 있다).
+     * 실패해도 예외를 던지지 않는다 — 내보내기 자체는 성공이어야 한다 (로그만).
+     */
+    public void revokeRole(Long tenantId, Long userId) {
+        try {
+            TenantEntity tenant = tenants.findById(tenantId).orElse(null);
+            AppUserEntity user = appUsers.findById(userId).orElse(null);
+            String roleId = (tenant == null) ? null : tenant.getDiscordRoleId();
+            String discordUserId = (user == null) ? null : user.getDiscordUserId();
+            if (isBlank(roleId) || isBlank(discordUserId)) {
+                return;
+            }
+            api.removeRole(discordUserId, roleId);
+            log.info("디스코드 팀 역할 회수 tenantId={} userId={}", tenantId, userId);
+        } catch (DiscordApiException e) {
+            log.warn("디스코드 팀 역할 회수 실패 tenantId={} userId={} status={}", tenantId, userId, e.getStatus());
+        } catch (RuntimeException e) {
+            log.warn("디스코드 팀 역할 회수 실패 tenantId={} userId={} ({})", tenantId, userId, e.getClass().getSimpleName());
+        }
     }
 
     public Result provision(Long tenantId) {
