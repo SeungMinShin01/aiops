@@ -71,7 +71,7 @@ ALTER TABLE tenant
     ADD COLUMN discord_channel_local_id  TEXT,
     ADD COLUMN discord_channel_prod_id   TEXT,
     ADD COLUMN discord_status            TEXT NOT NULL DEFAULT 'NONE'
-        CHECK (discord_status IN ('NONE', 'READY', 'FAILED')),
+        CHECK (discord_status IN ('NONE', 'READY', 'FAILED', 'SUSPENDED')),   -- SUSPENDED = 정지로 웹훅 삭제됨 (AI-94)
     ADD COLUMN discord_error             VARCHAR(100);   -- 채널 자동 생성 실패 단계 "<단계명>:<status>" (AI-92). 웹훅 url·토큰은 넣지 않는다
 
 -- API 키: 기존 행의 새 컬럼은 NULL (시드 키는 created_by 없음)
