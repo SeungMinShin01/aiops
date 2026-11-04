@@ -28,6 +28,11 @@ aiops:
   processing:
     threads: 4                  # AI-50 : 처리 풀 스레드 수
     queue: 1000                 # AI-50 : 처리 풀 대기줄 크기
+  reprocess:
+    interval: PT5M              # AI-53 : 재처리 주기 (이전 실행이 끝난 뒤 5분)
+    initial-delay: PT1M         # AI-53 : 서버 시작 후 첫 실행까지 기다리는 시간
+    min-age: PT2M               # AI-53 : 이 시간보다 오래된 미처리 이벤트만 줍는다
+    batch: 500                  # AI-53 : 한 번에 줍는 최대 개수
   notify:
     per-minute: 10              # 팀별 분당 디스코드 알림 상한. 넘으면 버린다 (AI-59)
   discord:                      # 값은 전부 환경변수 (규칙 10). 비어 있으면 디스코드 연동은 건너뛴다 (테스트·CI가 값 없이 뜨도록 기본값 빈 문자열)
