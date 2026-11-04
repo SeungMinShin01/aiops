@@ -24,7 +24,10 @@ server:
 
 aiops:
   ingest:
-    max-body-bytes: 1048576     # 수집 본문 크기 한도 (IngestBodySizeFilter). 병합 때 notify 아래로 들어가 있던 것을 제자리로
+    max-body-bytes: 1048576     # 수집 본문 크기 한도 (IngestBodySizeFilter, AI-31)
+  processing:
+    threads: 4                  # AI-50 : 처리 풀 스레드 수
+    queue: 1000                 # AI-50 : 처리 풀 대기줄 크기
   notify:
     per-minute: 10              # 팀별 분당 디스코드 알림 상한. 넘으면 버린다 (AI-59)
   apikey:

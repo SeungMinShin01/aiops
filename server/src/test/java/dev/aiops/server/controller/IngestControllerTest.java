@@ -26,7 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-// 수집 창구(/v1/events)를 진짜 Postgres 로 검사.
+// 수집 창구(/v1/events, AI-31 · /v1/hello·/v1/heartbeat, AI-33)를 진짜 Postgres 로 검사.
 // V2(RLS) 이후 (AI-16에서 수정):
 // - 클래스 @Transactional 을 두지 않는다. 테스트 트랜잭션이 먼저 열리면 TenantFilter 가 팀을 넣기 전이라 set_config 가 안 들어가고 INSERT 가 RLS 에 막힌다
 // - 롤백이 없으므로 시작할 때 owner(RLS 무시)로 비우고, 결과 확인도 owner 로 읽는다
@@ -68,6 +68,16 @@ class IngestControllerTest extends PostgresContainerSupport {
                 + "\"app\":{\"name\":\"sample\",\"commit\":\"abc\",\"hostHash\":\"abc123def456\"},"
                 + "\"events\":[" + events + "],\"droppedCount\":3}";
     }
+
+    // AI-33 : hello 본문 (환경 정보)
+    private static final String HELLO_JSON = "{\"env\":\"local\","
+            + "\"app\":{\"name\":\"sample\",\"commit\":\"abc\",\"hostHash\":\"abc123def456\"},"
+            + "\"javaVersion\":\"17\",\"springBootVersion\":\"4.1.1\","
+            + "\"dependencies\":[],\"configKeys\":[]}";
+
+    // AI-33 : heartbeat 본문
+    private static final String HEARTBEAT_JSON = "{\"env\":\"local\","
+            + "\"app\":{\"name\":\"sample\",\"hostHash\":\"abc123def456\"},\"sentAt\":1700000000000}";
 
     @Test
     void 정상_묶음은_202() throws Exception {
@@ -145,5 +155,54 @@ class IngestControllerTest extends PostgresContainerSupport {
         Long heartbeatRows = owner.queryForObject(
                 "select count(*) from heartbeat_last where tenant_id = ? and host_hash = 'abc123def456'", Long.class, tenantId);
         assertThat(heartbeatRows).isEqualTo(1);
+    }
+
+    // AI-33 : hello 를 받으면 스냅샷이 쌓이고 started_at(마지막 hello 시각)이 채워짐
+    @Test
+    void hello를_받으면_스냅샷이_쌓이고_마지막_hello_시각이_기록된다() throws Exception {
+        mockMvc.perform(post(ProtocolConstants.PATH_HELLO)
+                        .header(ProtocolConstants.HEADER_API_KEY, RAW_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(HELLO_JSON))
+                .andExpect(status().isAccepted());
+
+        // app_snapshot: payload 에서 필드를 꺼낼 수 있어야 함
+        String java = owner.queryForObject(
+                "select payload->>'javaVersion' from app_snapshot where tenant_id = ?", String.class, tenantId);
+        assertThat(java).isEqualTo("17");
+
+        // heartbeat_last: started_at 이 채워짐
+        Long started = owner.queryForObject(
+                "select count(*) from heartbeat_last where tenant_id = ? and started_at is not null", Long.class, tenantId);
+        assertThat(started).isEqualTo(1);
+    }
+
+    // AI-33 : heartbeat 는 last_seen 만 기록하고 스냅샷은 안 쌓음
+    @Test
+    void heartbeat는_last_seen만_기록하고_스냅샷은_안_쌓는다() throws Exception {
+        mockMvc.perform(post(ProtocolConstants.PATH_HEARTBEAT)
+                        .header(ProtocolConstants.HEADER_API_KEY, RAW_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(HEARTBEAT_JSON))
+                .andExpect(status().isAccepted());
+
+        Long seen = owner.queryForObject(
+                "select count(*) from heartbeat_last where tenant_id = ? and started_at is null", Long.class, tenantId);
+        assertThat(seen).isEqualTo(1);   // 행은 생기고 started_at 은 비어 있음
+
+        Long snapshots = owner.queryForObject(
+                "select count(*) from app_snapshot where tenant_id = ?", Long.class, tenantId);
+        assertThat(snapshots).isZero();
+    }
+
+    // AI-33 : hello·heartbeat 도 키가 없으면 401
+    @Test
+    void hello와_heartbeat도_키가_없으면_401() throws Exception {
+        mockMvc.perform(post(ProtocolConstants.PATH_HELLO)
+                        .contentType(MediaType.APPLICATION_JSON).content(HELLO_JSON))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post(ProtocolConstants.PATH_HEARTBEAT)
+                        .contentType(MediaType.APPLICATION_JSON).content(HEARTBEAT_JSON))
+                .andExpect(status().isUnauthorized());
     }
 }
