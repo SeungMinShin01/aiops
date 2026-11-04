@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 // 요청 헤더의 키 원문 → "어느 팀, 어느 env" 로 바꾸는 곳. 인증 판단은 이 클래스 한 곳에만 둠
 // 폐기 키 거부와 캐시 무효화도 여기 한 곳 (AI-74, v0.2 2-4). 다른 곳에 키 검증을 복제하지 않는다
-@Component // 스프링이 이 클래스의 객체를 만들어서 관리 (TenantFilter 가 가져다 씀)
+@Component // 스프링이 이 클래스의 객체를 만들어서 관리 (ApiKeyAuthFilter 가 가져다 씀)
 public class ApiKeyResolver {
     // 이 클래스에서 로그를 찍는 도구
     private static final Logger log = LoggerFactory.getLogger(ApiKeyResolver.class);

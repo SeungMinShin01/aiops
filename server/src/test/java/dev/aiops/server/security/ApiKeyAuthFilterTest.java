@@ -4,6 +4,8 @@ import dev.aiops.protocol.ProtocolConstants;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,7 +16,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -23,16 +24,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** TenantFilter (AI-70). DB 없이: 가짜 ApiKeyResolver + 팀을 그대로 돌려주는 확인용 컨트롤러 */
-class TenantFilterTest {
+/** ApiKeyAuthFilter (AI-79, TenantFilterTest를 옮김). DB 없이: 가짜 ApiKeyResolver + 확인용 컨트롤러 */
+class ApiKeyAuthFilterTest {
 
-    static final AtomicReference<Long> seenInController = new AtomicReference<>();
+    static final AtomicReference<Long> seenTenant = new AtomicReference<>();
+    static final AtomicReference<Authentication> seenAuth = new AtomicReference<>();
 
     @RestController
     static class ProbeController {
         @GetMapping("/v1/probe")
-        String probe(@RequestAttribute(TenantFilter.ENV_ATTRIBUTE) String env) {
-            seenInController.set(TenantContext.require());
+        String probe(@RequestAttribute(ApiKeyAuthFilter.ENV_ATTRIBUTE) String env) {
+            seenTenant.set(TenantContext.require());
+            seenAuth.set(SecurityContextHolder.getContext().getAuthentication());
             return TenantContext.require() + ":" + env;
         }
 
@@ -52,28 +55,37 @@ class TenantFilterTest {
 
     @BeforeEach
     void setUp() {
-        seenInController.set(null);
+        seenTenant.set(null);
+        seenAuth.set(null);
         when(resolver.resolve("good-key")).thenReturn(new ResolvedKey(42L, "local", 1L));
         when(resolver.resolve("bad-key")).thenThrow(new InvalidApiKeyException("invalid api key"));
         when(resolver.resolve(null)).thenThrow(new InvalidApiKeyException("invalid api key"));
         mockMvc = MockMvcBuilders.standaloneSetup(new ProbeController())
-                .addFilters(new TenantFilter(resolver))
+                .addFilters(new ApiKeyAuthFilter(resolver))
                 .build();
     }
 
     @AfterEach
     void clear() {
         TenantContext.clear();
+        SecurityContextHolder.clearContext();
     }
 
     @Test
-    void 정상_키면_컨트롤러에서_팀과_env를_쓸_수_있고_요청_후에는_비어_있다() throws Exception {
+    void 정상_키면_팀_env_인증이_설정되고_요청_후에는_비어_있다() throws Exception {
         mockMvc.perform(get("/v1/probe").header(ProtocolConstants.HEADER_API_KEY, "good-key"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("42:local"));
 
-        assertThat(seenInController.get()).isEqualTo(42L);
-        assertThat(TenantContext.get()).isEmpty(); // MockMvc는 같은 스레드에서 돈다 → finally clear 확인
+        assertThat(seenTenant.get()).isEqualTo(42L);
+        assertThat(seenAuth.get()).isInstanceOf(ApiKeyAuthentication.class);
+        assertThat(((ApiKeyAuthentication) seenAuth.get()).tenantId()).isEqualTo(42L);
+        assertThat(((ApiKeyAuthentication) seenAuth.get()).env()).isEqualTo("local");
+        assertThat(seenAuth.get().isAuthenticated()).isTrue();
+
+        // MockMvc는 같은 스레드에서 돈다 → finally clear 확인
+        assertThat(TenantContext.get()).isEmpty();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
     @Test
@@ -82,14 +94,15 @@ class TenantFilterTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("invalid_api_key"));
 
-        assertThat(seenInController.get()).isNull();
+        assertThat(seenTenant.get()).isNull();
         assertThat(TenantContext.get()).isEmpty();
     }
 
     @Test
     void 키_헤더가_없으면_401() throws Exception {
         mockMvc.perform(get("/v1/probe"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("invalid_api_key"));
 
         assertThat(TenantContext.get()).isEmpty();
     }
@@ -100,13 +113,14 @@ class TenantFilterTest {
                 .hasRootCauseInstanceOf(IllegalStateException.class);
 
         assertThat(TenantContext.get()).isEmpty();
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 
     @Test
     void v1이_아닌_경로는_키를_보지_않고_팀도_설정하지_않는다() throws Exception {
         ApiKeyResolver untouched = mock(ApiKeyResolver.class);
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new ProbeController())
-                .addFilters(new TenantFilter(untouched))
+                .addFilters(new ApiKeyAuthFilter(untouched))
                 .build();
 
         mvc.perform(get("/health-probe"))
@@ -117,7 +131,7 @@ class TenantFilterTest {
     }
 
     @Test
-    void 요청_속성이나_이전_요청의_팀을_물려받지_않는다() throws Exception {
+    void 이전_요청의_팀을_물려받지_않는다() throws Exception {
         mockMvc.perform(get("/v1/probe").header(ProtocolConstants.HEADER_API_KEY, "good-key"))
                 .andExpect(status().isOk());
 

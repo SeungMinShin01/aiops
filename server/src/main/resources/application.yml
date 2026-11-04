@@ -30,6 +30,13 @@ spring:
 
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:                   # 콘솔 세션 쿠키 (AI-79). 같은 도메인이라 Lax로 충분, None 금지
+        name: AIOPS_SESSION
+        http-only: true
+        secure: true            # 로컬(http)은 application-local.yml에서 false
+        same-site: lax
 
 aiops:
   ingest:

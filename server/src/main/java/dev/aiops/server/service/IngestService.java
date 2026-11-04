@@ -52,7 +52,7 @@ public class IngestService {
     }
 
     // 저장. 아래 4가지가 한 트랜잭션: 전부 성공하거나 하나라도 실패하면 전부 취소
-    // 팀은 TenantFilter 가 키로 정해 TenantContext 에 넣은 값만 쓴다 (AI-73). 트랜잭션이 열릴 때 바인더가 set_config → RLS WITH CHECK 통과
+    // 팀은 ApiKeyAuthFilter 가 키로 정해 TenantContext 에 넣은 값만 쓴다 (AI-73). 트랜잭션이 열릴 때 바인더가 set_config → RLS WITH CHECK 통과
     @Transactional
     public void store(String env, EventBatch batch) {
         Long tenantId = TenantContext.require();
