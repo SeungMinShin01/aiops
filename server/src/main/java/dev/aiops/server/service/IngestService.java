@@ -79,9 +79,10 @@ public class IngestService {
                 eventIds.size(), batch.droppedCount());
 
         // ③ 이 앱이 살아 있다고 기록 (에러 묶음도 하트비트로 침, D-086)
-        heartbeatRecorder.recordSeen(tenantId, env, hostHash, appName);
+        // AI-33 : 이벤트 경로는 시작 시각을 모르니 started 에 null (기존 started_at 유지)
+        heartbeatRecorder.touch(tenantId, env, hostHash, appName, null);
 
-        // ④ 저장된 id 가 있을 때만 "저장됐다" 알림을 발행. 커밋 뒤 처리는 다음 단위(AI-32) 리스너가 함
+        // ④ 저장된 id 가 있을 때만 "저장됐다" 알림을 발행. 커밋 뒤 처리는 AI-32 리스너가 함
         if (!eventIds.isEmpty()) {
             publisher.publishEvent(new ErrorsStored(tenantId, eventIds));
         }
