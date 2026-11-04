@@ -33,6 +33,12 @@ aiops:
     initial-delay: PT1M         # AI-53 : 서버 시작 후 첫 실행까지 기다리는 시간
     min-age: PT2M               # AI-53 : 이 시간보다 오래된 미처리 이벤트만 줍는다
     batch: 500                  # AI-53 : 한 번에 줍는 최대 개수
+  retention:
+    local-days: 3               # AI-61 : local 키 이벤트 보관 일수
+    prod-days: 14               # AI-61 : prod 키 이벤트 보관 일수
+    cron: "0 0 4 * * *"         # AI-61 : 매일 04:00 (Asia/Seoul)
+    batch-size: 5000            # AI-61 : 한 번에 지우는 최대 행 수
+    pause-ms: 200               # AI-61 : 묶음 사이에 쉬는 시간(ms)
   notify:
     per-minute: 10              # 팀별 분당 디스코드 알림 상한. 넘으면 버린다 (AI-59)
   discord:                      # 값은 전부 환경변수 (규칙 10). 비어 있으면 디스코드 연동은 건너뛴다 (테스트·CI가 값 없이 뜨도록 기본값 빈 문자열)
