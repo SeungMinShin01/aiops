@@ -125,6 +125,16 @@ class DiscordWebhookNotifierTest {
     }
 
     @Test
+    void 정지된_팀에는_웹훅이_있어도_보내지_않는다() {
+        ReflectionTestUtils.setField(tenant, "status", dev.aiops.server.model.entity.TenantStatus.SUSPENDED);
+        givenGroup(30L, 1L, "local");
+
+        notifier.notifyNewGroup(1L, 30L);
+
+        server.verify(); // 요청이 하나라도 가면 MockRestServiceServer가 실패시킨다
+    }
+
+    @Test
     void notifyText는_env_채널로_content를_보낸다() {
         server.expect(requestTo(PROD_HOOK))
                 .andExpect(method(HttpMethod.POST))
