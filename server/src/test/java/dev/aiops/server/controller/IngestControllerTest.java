@@ -205,4 +205,27 @@ class IngestControllerTest extends PostgresContainerSupport {
                         .contentType(MediaType.APPLICATION_JSON).content(HEARTBEAT_JSON))
                 .andExpect(status().isUnauthorized());
     }
+
+    // AI-62 : Starter 가 보낸 droppedCount(7) 가 ingest_stat 에 그대로 기록됨
+    @Test
+    void droppedCountRecorded() throws Exception {
+        String event = "{\"time\":1700000000000,\"level\":\"ERROR\","
+                + "\"exceptionType\":\"java.lang.NullPointerException\","
+                + "\"message\":\"boom\",\"thread\":\"main\"}";
+        String body = "{\"env\":\"local\","
+                + "\"app\":{\"name\":\"sample\",\"commit\":\"abc\",\"hostHash\":\"abc123def456\"},"
+                + "\"events\":[" + event + "],\"droppedCount\":7}";
+
+        mockMvc.perform(post(ProtocolConstants.PATH_EVENTS)
+                        .header(ProtocolConstants.HEADER_API_KEY, RAW_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isAccepted());
+
+        Number dropped = (Number) em.createNativeQuery(
+                        "select dropped_count from ingest_stat where tenant_id = :t and env = 'local'")
+                .setParameter("t", tenantId)
+                .getSingleResult();
+        assertThat(dropped.longValue()).isEqualTo(7);
+    }
 }
