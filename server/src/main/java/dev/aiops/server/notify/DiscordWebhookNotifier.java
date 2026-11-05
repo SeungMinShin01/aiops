@@ -110,6 +110,31 @@ public class DiscordWebhookNotifier implements Notifier {
         }
     }
 
+    @Override
+    public void notifyText(Long tenantId, String env, String text) {
+        try {
+            TenantEntity tenant = tenants.findById(tenantId).orElse(null);
+            String webhook = (tenant == null) ? null : webhookFor(tenant, env);
+            if (webhook == null || webhook.isBlank()) {
+                log.info("글 전송 생략: 웹훅 미설정 tenantId={} env={}", tenantId, env);
+                return;
+            }
+            restClient.post()
+                    .uri(URI.create(webhook))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("content", text))
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("글 전송 tenantId={} env={}", tenantId, env);
+        } catch (RestClientResponseException e) {
+            log.warn("글 전송 실패: 디스코드 응답 {} tenantId={} env={}", e.getStatusCode().value(), tenantId, env);
+        } catch (ResourceAccessException e) {
+            log.warn("글 전송 실패: 연결 오류·타임아웃 tenantId={} env={}", tenantId, env);
+        } catch (RuntimeException e) {
+            log.warn("글 전송 실패: {} tenantId={} env={}", e.getClass().getSimpleName(), tenantId, env);
+        }
+    }
+
     static String webhookFor(TenantEntity tenant, String env) {
         if ("local".equals(env)) {
             return tenant.getDiscordWebhookLocal();

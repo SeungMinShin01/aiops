@@ -125,6 +125,28 @@ class DiscordWebhookNotifierTest {
     }
 
     @Test
+    void notifyText는_env_채널로_content를_보낸다() {
+        server.expect(requestTo(PROD_HOOK))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(jsonPath("$.content").value("연결 확인"))
+                .andRespond(withNoContent());
+
+        notifier.notifyText(1L, "prod", "연결 확인");
+
+        server.verify();
+    }
+
+    @Test
+    void notifyText는_실패해도_예외를_던지지_않고_주소도_로그에_없다(CapturedOutput output) {
+        server.expect(requestTo(LOCAL_HOOK)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+        assertThatCode(() -> notifier.notifyText(1L, "local", "연결 확인")).doesNotThrowAnyException();
+
+        server.verify();
+        assertThat(output).contains("글 전송 실패").doesNotContain("local-secret");
+    }
+
+    @Test
     void 분당_상한을_넘은_알림은_버린다() {
         notifier = notifierWithLimit(1);
         givenGroup(26L, 1L, "local");
