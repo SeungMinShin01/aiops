@@ -2,6 +2,7 @@ package dev.aiops.server.notify;
 
 import dev.aiops.server.model.entity.ErrorGroupEntity;
 import dev.aiops.server.model.entity.TenantEntity;
+import dev.aiops.server.model.entity.TenantStatus;
 import dev.aiops.server.model.repository.ErrorGroupRepository;
 import dev.aiops.server.model.repository.TenantRepository;
 import org.slf4j.Logger;
@@ -75,6 +76,11 @@ public class DiscordWebhookNotifier implements Notifier {
             // 1. 채널 선택: env에 맞는 웹훅 (15단계 전까지는 로컬 DB에 psql로 직접 넣는다)
             //    env는 그룹의 env = 키의 env (Starter가 보낸 값이 아니라 수집 단계에서 키로 정한 값)
             TenantEntity tenant = tenants.findById(tenantId).orElse(null);
+            // 정지된 팀에는 보내지 않는다 (웹훅이 남아 있어도, AI-94)
+            if (tenant != null && tenant.getStatus() == TenantStatus.SUSPENDED) {
+                log.info("알림 생략: 정지된 팀 tenantId={} env={}", tenantId, env);
+                return;
+            }
             String webhook = (tenant == null) ? null : webhookFor(tenant, env);
             if (webhook == null || webhook.isBlank()) {
                 log.info("알림 생략: 웹훅 미설정 tenantId={} env={}", tenantId, env);
@@ -107,6 +113,31 @@ public class DiscordWebhookNotifier implements Notifier {
             log.warn("알림 실패: 연결 오류·타임아웃 tenantId={} env={}", tenantId, env);
         } catch (RuntimeException e) {
             log.warn("알림 실패: {} tenantId={} env={}", e.getClass().getSimpleName(), tenantId, env);
+        }
+    }
+
+    @Override
+    public void notifyText(Long tenantId, String env, String text) {
+        try {
+            TenantEntity tenant = tenants.findById(tenantId).orElse(null);
+            String webhook = (tenant == null) ? null : webhookFor(tenant, env);
+            if (webhook == null || webhook.isBlank()) {
+                log.info("글 전송 생략: 웹훅 미설정 tenantId={} env={}", tenantId, env);
+                return;
+            }
+            restClient.post()
+                    .uri(URI.create(webhook))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("content", text))
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("글 전송 tenantId={} env={}", tenantId, env);
+        } catch (RestClientResponseException e) {
+            log.warn("글 전송 실패: 디스코드 응답 {} tenantId={} env={}", e.getStatusCode().value(), tenantId, env);
+        } catch (ResourceAccessException e) {
+            log.warn("글 전송 실패: 연결 오류·타임아웃 tenantId={} env={}", tenantId, env);
+        } catch (RuntimeException e) {
+            log.warn("글 전송 실패: {} tenantId={} env={}", e.getClass().getSimpleName(), tenantId, env);
         }
     }
 

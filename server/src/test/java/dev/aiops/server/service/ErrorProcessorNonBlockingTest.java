@@ -33,6 +33,10 @@ class ErrorProcessorNonBlockingTest extends PostgresContainerSupport {
     }
 
     static class SlowErrorProcessor extends ErrorProcessor {
+        SlowErrorProcessor() {
+            super(null);   // AI-52 : 부모가 GroupingService 를 받게 돼서 필요. 이 처리기는 쓰지 않음
+        }
+
         @Override
         @Async("aiopsProcessingExecutor")
         public void process(Long tenantId, List<Long> eventIds) {
