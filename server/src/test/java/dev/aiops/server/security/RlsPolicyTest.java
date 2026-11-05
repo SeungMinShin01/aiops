@@ -25,8 +25,11 @@ class RlsPolicyTest extends PostgresContainerSupport {
     static final Set<String> TEAM_TABLES =
             Set.of("error_event", "error_group", "app_snapshot", "ingest_stat", "heartbeat_last");
 
-    /** tenant_id가 있지만 RLS를 걸지 않는 테이블. api_key는 팀을 알아내기 전에 키로 조회해야 한다. */
-    static final Set<String> EXCEPTIONS = Set.of("api_key");
+    /**
+     * tenant_id가 있지만 RLS를 걸지 않는 테이블.
+     * api_key·membership·invitation은 팀을 알아내기 전에 조회해야 하고, admin_access_log는 관리자 전용이다 (D-023).
+     */
+    static final Set<String> EXCEPTIONS = Set.of("api_key", "membership", "invitation", "admin_access_log");
 
     @Autowired
     DataSource dataSource;
