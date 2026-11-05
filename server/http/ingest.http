@@ -1,0 +1,162 @@
+### AI-34 : 수집 API 수동 요청 모음. 환경은 dev 선택 후 "Run all"로 6개 한 번에 확인
+### AI-34 : 본문 필드명은 protocol record 그대로 (apiVersion 없음, 스택은 stack)
+
+### 1. 정상 events 2개 (원인 체인 포함) -> 202
+POST {{host}}/v1/events
+Content-Type: application/json
+X-AIOPS-KEY: {{apiKey}}
+
+{
+  "env": "local",
+  "app": {
+    "name": "sample-app",
+    "commit": "abc1234",
+    "dirty": false,
+    "hostHash": "a1b2c3d4e5f6"
+  },
+  "events": [
+    {
+      "time": 1762000000000,
+      "level": "ERROR",
+      "exceptionType": "java.lang.IllegalStateException",
+      "message": "주문 상태가 올바르지 않음",
+      "stack": [
+        { "className": "com.example.order.OrderService", "methodName": "pay", "fileName": "OrderService.java", "lineNumber": 42 },
+        { "className": "com.example.order.OrderController", "methodName": "payOrder", "fileName": "OrderController.java", "lineNumber": 27 }
+      ],
+      "causes": [
+        { "type": "java.sql.SQLException", "message": "connection closed" },
+        { "type": "java.net.SocketException", "message": "Connection reset" }
+      ],
+      "thread": "http-nio-8080-exec-1",
+      "phase": "RUNTIME"
+    },
+    {
+      "time": 1762000001000,
+      "level": "ERROR",
+      "exceptionType": "java.lang.NullPointerException",
+      "message": "상품 정보가 없음",
+      "stack": [
+        { "className": "com.example.product.ProductService", "methodName": "find", "fileName": "ProductService.java", "lineNumber": 18 }
+      ],
+      "causes": [
+        { "type": "java.lang.IllegalArgumentException", "message": "id is null" }
+      ],
+      "thread": "http-nio-8080-exec-2",
+      "phase": "RUNTIME"
+    }
+  ],
+  "droppedCount": 0
+}
+
+> {%
+client.test("AI-34 : 정상 events는 202", function () {
+  client.assert(response.status === 202, "기대 202, 실제 " + response.status);
+});
+%}
+
+### 2. 키 헤더 없음 -> 401
+POST {{host}}/v1/events
+Content-Type: application/json
+
+{ "env": "local", "app": { "name": "sample-app", "hostHash": "a1b2c3d4e5f6" }, "events": [], "droppedCount": 0 }
+
+> {%
+client.test("AI-34 : 키 헤더 없으면 401", function () {
+  client.assert(response.status === 401, "기대 401, 실제 " + response.status);
+});
+%}
+
+### 3. 잘못된 키 -> 401
+POST {{host}}/v1/events
+Content-Type: application/json
+X-AIOPS-KEY: aiops_l_wrong-key-0000
+
+{ "env": "local", "app": { "name": "sample-app", "hostHash": "a1b2c3d4e5f6" }, "events": [], "droppedCount": 0 }
+
+> {%
+client.test("AI-34 : 잘못된 키는 401", function () {
+  client.assert(response.status === 401, "기대 401, 실제 " + response.status);
+});
+%}
+
+### 4. events 101개 (최대 100 초과) -> 400
+### AI-34 : 요청 전 스크립트로 짧은 이벤트 101개를 만들어 batch 변수에 넣음
+< {%
+const events = [];
+for (let i = 0; i < 101; i++) {
+  events.push({
+    time: 1762000000000 + i,
+    level: "ERROR",
+    exceptionType: "java.lang.RuntimeException",
+    message: "big batch " + i,
+    stack: [{ className: "com.example.Big", methodName: "run", fileName: "Big.java", lineNumber: i }],
+    causes: [],
+    thread: "main",
+    phase: "RUNTIME"
+  });
+}
+request.variables.set("batch", JSON.stringify({
+  env: "local",
+  app: { name: "sample-app", commit: "abc1234", dirty: false, hostHash: "a1b2c3d4e5f6" },
+  events: events,
+  droppedCount: 0
+}));
+%}
+POST {{host}}/v1/events
+Content-Type: application/json
+X-AIOPS-KEY: {{apiKey}}
+
+{{batch}}
+
+> {%
+client.test("AI-34 : 101개는 400", function () {
+  client.assert(response.status === 400, "기대 400, 실제 " + response.status);
+});
+%}
+
+### 5. 1MB 초과 본문 -> 413
+### AI-34 : 요청 전 스크립트로 약 1.1MB짜리 message를 만들어 big 변수에 넣음
+< {%
+request.variables.set("big", "x".repeat(1100000));
+%}
+POST {{host}}/v1/events
+Content-Type: application/json
+X-AIOPS-KEY: {{apiKey}}
+
+{ "env": "local", "app": { "name": "sample-app", "hostHash": "a1b2c3d4e5f6" }, "events": [ { "time": 1762000000000, "level": "ERROR", "exceptionType": "java.lang.RuntimeException", "message": "{{big}}", "stack": [], "causes": [], "thread": "main", "phase": "RUNTIME" } ], "droppedCount": 0 }
+
+> {%
+client.test("AI-34 : 1MB 초과는 413", function () {
+  client.assert(response.status === 413, "기대 413, 실제 " + response.status);
+});
+%}
+
+### 6. hello 정상 -> 202
+POST {{host}}/v1/hello
+Content-Type: application/json
+X-AIOPS-KEY: {{apiKey}}
+
+{
+  "env": "local",
+  "app": {
+    "name": "sample-app",
+    "commit": "abc1234",
+    "dirty": false,
+    "hostHash": "a1b2c3d4e5f6"
+  },
+  "javaVersion": "17.0.10",
+  "springBootVersion": "4.1.1",
+  "dependencies": [
+    { "group": "org.springframework.boot", "artifact": "spring-boot-starter-web", "version": "4.1.1" }
+  ],
+  "configKeys": [
+    { "key": "server.port", "source": "YML" }
+  ]
+}
+
+> {%
+client.test("AI-34 : hello 정상은 202", function () {
+  client.assert(response.status === 202, "기대 202, 실제 " + response.status);
+});
+%}

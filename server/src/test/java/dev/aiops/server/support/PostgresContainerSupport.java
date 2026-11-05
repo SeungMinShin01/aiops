@@ -17,6 +17,9 @@ public abstract class PostgresContainerSupport {
             .withDatabaseName("aiops") // 01-roles.sh가 'aiops'를 직접 쓴다
             .withUsername("postgres")
             .withPassword("postgres")
+            // 테스트 클래스마다 설정이 다르면 스프링 컨텍스트(=커넥션 풀)가 따로 떠서 기본 상한 100을 넘는다
+            // ("remaining connection slots are reserved"). 테스트용 DB만 상한을 올린다. fsync=off는 Testcontainers 기본값 유지
+            .withCommand("postgres", "-c", "fsync=off", "-c", "max_connections=300")
             .withEnv("AIOPS_OWNER_PASSWORD", "owner_test")
             .withEnv("AIOPS_APP_PASSWORD", "app_test")
             .withEnv("GRAFANA_RO_PASSWORD", "grafana_test")
