@@ -22,7 +22,7 @@ public interface ErrorEventRepository extends JpaRepository<ErrorEventEntity, Lo
 
     // AI-61 : env 가 같고 cutoff 보다 오래된 이벤트를 batch 개까지만 지우고, 지운 개수를 돌려줌
     // Postgres 의 DELETE 에는 LIMIT 이 없어서 "id 를 batch 개 골라서 그 id 만 지움" 형태로 씀
-    // 관리용 삭제라 팀 경계를 넘음 (11단계 RLS 가 켜지면 팀별로 바꿈)
+    // RLS(11단계) 이후: 지금 설정된 팀(app.tenant_id)의 행만 지워진다. RetentionScheduler 가 팀마다 set 해서 부른다 (AI-73)
     @Modifying
     @Query(value = """
             DELETE FROM error_event

@@ -222,10 +222,9 @@ class IngestControllerTest extends PostgresContainerSupport {
                         .content(body))
                 .andExpect(status().isAccepted());
 
-        Number dropped = (Number) em.createNativeQuery(
-                        "select dropped_count from ingest_stat where tenant_id = :t and env = 'local'")
-                .setParameter("t", tenantId)
-                .getSingleResult();
-        assertThat(dropped.longValue()).isEqualTo(7);
+        // RLS 이후: 확인은 owner 로 읽는다 (AI-16 병합 시 em → owner)
+        Long dropped = owner.queryForObject(
+                "select dropped_count from ingest_stat where tenant_id = ? and env = 'local'", Long.class, tenantId);
+        assertThat(dropped).isEqualTo(7L);
     }
 }

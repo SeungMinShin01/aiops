@@ -2,10 +2,8 @@ package dev.aiops.server.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import dev.aiops.server.model.entity.TenantEntity;
-import dev.aiops.server.model.repository.TenantRepository;
+import dev.aiops.server.security.TenantContext;
 import dev.aiops.server.support.PostgresContainerSupport;
-import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,21 +13,43 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 // AI-52 : 진짜 Postgres 로 ON CONFLICT upsert 검사 (H2 는 ON CONFLICT·xmax 미지원)
+// AI-16 병합(RLS): 실제 서버에서 upsert 는 처리 스레드(ErrorProcessor 가 팀을 set 한 상태)에서만 불린다.
+// 테스트도 같은 조건으로: 부르는 스레드마다 TenantContext 를 set/clear. 확인은 owner(RLS 무시)로
 @SpringBootTest
 class GroupUpserterTest extends PostgresContainerSupport {
 
     @Autowired GroupUpserter upserter;
-    @Autowired TenantRepository tenants;
-    @Autowired EntityManager em;
+
+    private JdbcTemplate owner;
+
+    @BeforeEach
+    void setUp() {
+        owner = new JdbcTemplate(new DriverManagerDataSource(jdbcUrl(), OWNER_USER, OWNER_PASSWORD));
+    }
 
     // 테스트마다 새 팀 (committed 라서 이름이 겹치지 않게 랜덤)
     private Long newTenant() {
-        return tenants.save(new TenantEntity("g-" + UUID.randomUUID().toString().substring(0, 8))).getId();
+        return owner.queryForObject("INSERT INTO tenant (name) VALUES (?) RETURNING id", Long.class,
+                "g-" + UUID.randomUUID().toString().substring(0, 8));
+    }
+
+    // 처리 스레드처럼: 이 팀으로 set → 일 → clear
+    private static <T> T asTenant(Long tenantId, Supplier<T> work) {
+        TenantContext.set(tenantId);
+        try {
+            return work.get();
+        } finally {
+            TenantContext.clear();
+        }
     }
 
     // 64자 지문 (테스트마다 새 값)
@@ -42,18 +62,12 @@ class GroupUpserterTest extends PostgresContainerSupport {
     }
 
     private long countGroups(String fingerprint) {
-        return ((Number) em.createNativeQuery(
-                        "select count(*) from error_group where fingerprint = :f")
-                .setParameter("f", fingerprint)
-                .getSingleResult()).longValue();
+        return owner.queryForObject("select count(*) from error_group where fingerprint = ?", Long.class, fingerprint);
     }
 
     private long occurrenceOf(Long tenantId, String fingerprint) {
-        return ((Number) em.createNativeQuery(
-                        "select occurrence_count from error_group where tenant_id = :t and fingerprint = :f")
-                .setParameter("t", tenantId)
-                .setParameter("f", fingerprint)
-                .getSingleResult()).longValue();
+        return owner.queryForObject("select occurrence_count from error_group where tenant_id = ? and fingerprint = ?",
+                Long.class, tenantId, fingerprint);
     }
 
     @Test
@@ -63,7 +77,7 @@ class GroupUpserterTest extends PostgresContainerSupport {
 
         List<GroupUpserter.UpsertResult> results = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
-            results.add(upserter.upsert(tenantId, "local", fp, summary()));
+            results.add(asTenant(tenantId, () -> upserter.upsert(tenantId, "local", fp, summary())));
         }
 
         assertThat(countGroups(fp)).isEqualTo(1);                 // 그룹은 1개
@@ -86,7 +100,7 @@ class GroupUpserterTest extends PostgresContainerSupport {
             Callable<GroupUpserter.UpsertResult> task = () -> {
                 ready.countDown();
                 go.await();
-                return upserter.upsert(tenantId, "local", fp, summary());
+                return asTenant(tenantId, () -> upserter.upsert(tenantId, "local", fp, summary()));   // 스레드마다 set
             };
             futures.add(pool.submit(task));
         }
@@ -112,8 +126,8 @@ class GroupUpserterTest extends PostgresContainerSupport {
         Long teamB = newTenant();
         String fp = newFingerprint();
 
-        upserter.upsert(teamA, "local", fp, summary());
-        upserter.upsert(teamB, "local", fp, summary());
+        asTenant(teamA, () -> upserter.upsert(teamA, "local", fp, summary()));
+        asTenant(teamB, () -> upserter.upsert(teamB, "local", fp, summary()));
 
         assertThat(countGroups(fp)).isEqualTo(2);
     }

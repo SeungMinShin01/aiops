@@ -1,5 +1,6 @@
 package dev.aiops.server.service;
 
+import dev.aiops.server.security.TenantContext;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -20,8 +21,12 @@ public class ErrorProcessor {
     }
 
     // AI-50 : 처리 풀(aiops-proc-)에서 실행됨. 호출한 쪽은 기다리지 않고 바로 돌아감
+    // AI-73 : 처리 스레드에는 요청 스레드의 TenantContext 가 넘어오지 않는다 (ThreadLocal).
+    //         그래서 파라미터로 받은 팀을 첫 줄에서 set 하고 finally 에서 clear (D-018, D-081).
+    //         groupingService.groupOne 의 트랜잭션이 열릴 때 바인더가 set_config → RLS 통과
     @Async("aiopsProcessingExecutor")
     public void process(Long tenantId, List<Long> eventIds) {
+        TenantContext.set(tenantId);
         try {
             log.info("처리 요청 받음 tenantId={} count={}", tenantId, eventIds.size());
 
@@ -44,6 +49,8 @@ public class ErrorProcessor {
         } catch (RuntimeException e) {
             // @Async 메서드의 예외는 조용히 사라지므로 직접 잡아서 로그
             log.error("처리 실패 tenantId={} eventIds={}", tenantId, eventIds, e);
+        } finally {
+            TenantContext.clear();   // 처리 풀 스레드는 재사용된다 → 다음 작업이 이 팀을 물려받지 않게
         }
     }
 }
