@@ -12,6 +12,7 @@ import dev.aiops.protocol.Phase;
 import dev.aiops.server.model.entity.TenantEntity;
 import dev.aiops.server.model.repository.IngestStatRepository;
 import dev.aiops.server.model.repository.TenantRepository;
+import dev.aiops.server.security.TenantContext;
 import dev.aiops.server.support.PostgresContainerSupport;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -20,6 +21,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // AI-62 : 저장 트랜잭션이 실패해 취소되면 통계도 같이 취소되는지 확인
@@ -43,9 +46,19 @@ class IngestStatRollbackTest extends PostgresContainerSupport {
                 List.of(event), 4);
 
         // 이벤트 저장 → 통계 기록 → 하트비트에서 실패 → 전체 취소
-        assertThatThrownBy(() -> ingestService.store(team, "local", batch)).isInstanceOf(RuntimeException.class);
+        // AI-16 병합: store 는 팀을 TenantContext 에서 꺼낸다 (요청 스레드에서 키 필터가 하는 일을 흉내)
+        TenantContext.set(team);
+        try {
+            assertThatThrownBy(() -> ingestService.store("local", batch)).isInstanceOf(RuntimeException.class);
+        } finally {
+            TenantContext.clear();
+        }
 
-        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
-        assertThat(stats.findByTenantAndRange(team, today.minusDays(1), today.plusDays(1))).isEmpty();
+        // 확인은 owner(RLS 무시)로: 팀 설정 없이 app 계정으로 읽으면 RLS 때문에 항상 0건이라 검사가 무의미해진다
+        JdbcTemplate owner = new JdbcTemplate(new DriverManagerDataSource(jdbcUrl(), OWNER_USER, OWNER_PASSWORD));
+        assertThat(owner.queryForObject("SELECT count(*) FROM ingest_stat WHERE tenant_id = ?", Long.class, team))
+                .isZero();
+        assertThat(owner.queryForObject("SELECT count(*) FROM error_event WHERE tenant_id = ?", Long.class, team))
+                .as("이벤트도 같이 취소").isZero();
     }
 }
