@@ -3,6 +3,7 @@ package dev.aiops.server.service;
 import dev.aiops.server.client.DiscordApiClient;
 import dev.aiops.server.client.DiscordApiException;
 import dev.aiops.server.client.WebhookInfo;
+import dev.aiops.server.client.WebhookUrls;
 import dev.aiops.server.config.DiscordProperties;
 import dev.aiops.server.model.entity.DiscordStatus;
 import dev.aiops.server.model.entity.TenantEntity;
@@ -69,6 +70,62 @@ public class DiscordProvisioner {
         this.notifier = notifier;
         this.properties = properties;
         this.appUsers = appUsers;
+    }
+
+    /**
+     * 팀 정지 → 웹훅 2개를 디스코드에서 삭제하고 컬럼을 비운다 (AI-94, D-069 "웹훅 삭제, 채널 보관").
+     * 채널·역할·카테고리 id는 그대로 둔다 — 재개하면 provision이 웹훅만 다시 만든다.
+     * 웹훅이 남아 있어도 Notifier가 정지 팀에는 보내지 않는다. 삭제는 "url이 유출돼도 무효"를 위한 것.
+     * 실패해도 예외를 던지지 않는다 (정지는 이미 커밋됨) — 로그 + discord_error.
+     */
+    public void suspend(Long tenantId) {
+        ReentrantLock lock = locks.computeIfAbsent(tenantId, id -> new ReentrantLock());
+        lock.lock(); // 같은 팀 provision이 돌고 있으면 끝날 때까지 기다린다
+        String step = "suspend-webhook-local";
+        try {
+            TenantEntity tenant = tenants.findById(tenantId).orElse(null);
+            if (tenant == null) {
+                log.warn("디스코드 정지 처리 생략: 팀 없음 tenantId={}", tenantId);
+                return;
+            }
+            deleteWebhook(tenant.getDiscordWebhookLocal(), tenantId, "local");
+            tenants.updateDiscordWebhookLocal(tenantId, null);
+
+            step = "suspend-webhook-prod";
+            deleteWebhook(tenant.getDiscordWebhookProd(), tenantId, "prod");
+            tenants.updateDiscordWebhookProd(tenantId, null);
+
+            tenants.updateDiscordStatus(tenantId, DiscordStatus.SUSPENDED, null);
+            log.info("디스코드 정지 처리 완료(웹훅 삭제, 채널 보관) tenantId={}", tenantId);
+        } catch (DiscordApiException e) {
+            recordSuspendFailure(tenantId, step + ":" + e.getStatus());
+        } catch (RuntimeException e) {
+            recordSuspendFailure(tenantId, step + ":" + e.getClass().getSimpleName());
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /** url에서 id만 꺼내 삭제 (url 전체는 로그에 쓰지 않는다). 이미 없으면(404) 성공으로 본다 */
+    private void deleteWebhook(String webhookUrl, Long tenantId, String env) {
+        if (isBlank(webhookUrl)) {
+            return;
+        }
+        String webhookId = WebhookUrls.webhookId(webhookUrl).orElse(null);
+        if (webhookId == null) {
+            log.warn("웹훅 url 형식을 알 수 없어 디스코드 삭제는 건너뛰고 컬럼만 비움 tenantId={} env={}", tenantId, env);
+            return;
+        }
+        api.deleteWebhook(webhookId);
+    }
+
+    private void recordSuspendFailure(Long tenantId, String error) {
+        try {
+            tenants.updateDiscordStatus(tenantId, DiscordStatus.SUSPENDED, error.length() > 100 ? error.substring(0, 100) : error);
+        } catch (RuntimeException ignored) {
+            // 상태 저장까지 실패해도 밖으로 던지지 않는다
+        }
+        log.warn("디스코드 정지 처리 실패 tenantId={} 원인={}", tenantId, error);
     }
 
     /**

@@ -24,4 +24,18 @@ public class DiscordProvisionListener {
     public void onTeamCreated(TeamCreated event) {
         provisioner.provision(event.tenantId());
     }
+
+    /** 정지 커밋 후 → 웹훅 2개 삭제 (채널·역할은 보관). 정지 API는 디스코드를 기다리지 않는다 (AI-94) */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTeamSuspended(TeamSuspended event) {
+        provisioner.suspend(event.tenantId());
+    }
+
+    /** 재개 커밋 후 → provision 재실행. 멱등이라 역할·채널은 건너뛰고 웹훅만 새로 만든다 (AI-94) */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onTeamResumed(TeamResumed event) {
+        provisioner.provision(event.tenantId());
+    }
 }
