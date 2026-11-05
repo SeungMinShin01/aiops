@@ -15,4 +15,7 @@ public interface MembershipRepository extends JpaRepository<MembershipEntity, Lo
 
     // 이 사용자가 이 팀 멤버인지 + 역할 (MembershipGuard, AI-80)
     Optional<MembershipEntity> findByUserIdAndTenantId(Long userId, Long tenantId);
+
+    // 이 사용자가 이 팀 멤버인지만 (디스코드 연결 등 /api/teams/{id}/** 밖 경로에서 직접 확인할 때, AI-93)
+    boolean existsByUserIdAndTenantId(Long userId, Long tenantId);
 }

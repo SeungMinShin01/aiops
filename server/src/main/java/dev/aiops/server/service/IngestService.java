@@ -6,9 +6,6 @@ import dev.aiops.protocol.EventBatch;
 import dev.aiops.protocol.ProtocolConstants;
 import dev.aiops.server.model.entity.ErrorEventEntity;
 import dev.aiops.server.model.repository.ErrorEventRepository;
-import dev.aiops.server.model.repository.IngestStatRepository;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -26,18 +23,18 @@ public class IngestService {
     private static final Logger log = LoggerFactory.getLogger(IngestService.class);
 
     private final ErrorEventRepository errorEventRepository;
-    private final IngestStatRepository ingestStatRepository;
+    private final IngestStatRecorder ingestStatRecorder;   // AI-62 : 통계 기록은 이 클래스가 담당
     private final HeartbeatRecorder heartbeatRecorder;
     private final ApplicationEventPublisher publisher;   // 서버 내부 방송 도구
     private final ObjectMapper objectMapper;             // 객체 → JSON 글자 변환기
 
     public IngestService(ErrorEventRepository errorEventRepository,
-                         IngestStatRepository ingestStatRepository,
+                         IngestStatRecorder ingestStatRecorder,
                          HeartbeatRecorder heartbeatRecorder,
                          ApplicationEventPublisher publisher,
                          ObjectMapper objectMapper) {
         this.errorEventRepository = errorEventRepository;
-        this.ingestStatRepository = ingestStatRepository;
+        this.ingestStatRecorder = ingestStatRecorder;
         this.heartbeatRecorder = heartbeatRecorder;
         this.publisher = publisher;
         this.objectMapper = objectMapper;
@@ -77,9 +74,8 @@ public class IngestService {
                 .map(ErrorEventEntity::getId)
                 .toList();
 
-        // ② 오늘 수집·버린 개수를 더함 (UTC 날짜 기준)
-        ingestStatRepository.upsertCounts(tenantId, env, LocalDate.now(ZoneOffset.UTC),
-                eventIds.size(), batch.droppedCount());
+        // ② 오늘 받은 수·Starter 가 버린 수를 더함 (AI-62 : IngestStatRecorder 가 같은 트랜잭션 안에서 기록, 날짜는 서울 기준)
+        ingestStatRecorder.record(tenantId, env, batch.events().size(), batch.droppedCount());
 
         // ③ 이 앱이 살아 있다고 기록 (에러 묶음도 하트비트로 침, D-086)
         // AI-33 : 이벤트 경로는 시작 시각을 모르니 started 에 null (기존 started_at 유지)
