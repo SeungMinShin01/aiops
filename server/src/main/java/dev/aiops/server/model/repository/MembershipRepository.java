@@ -15,4 +15,7 @@ public interface MembershipRepository extends JpaRepository<MembershipEntity, Lo
 
     // 이 사용자가 이 팀 멤버인지 + 역할 (MembershipGuard, AI-80)
     Optional<MembershipEntity> findByUserIdAndTenantId(Long userId, Long tenantId);
+
+    // 팀원 목록 (14단계)
+    List<MembershipEntity> findAllByTenantId(Long tenantId);
 }
