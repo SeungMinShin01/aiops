@@ -27,3 +27,6 @@ infra/prod/.env
 .claude/
 claude-output/
 claudoutput/
+
+# AI-34 : 운영 키·주소용 HTTP 클라이언트 비밀 환경 파일
+http-client.private.env.json
