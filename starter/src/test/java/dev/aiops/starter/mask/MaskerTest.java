@@ -105,7 +105,8 @@ class MaskerTest {
                 List.of(new ErrorCause("java.sql.SQLException", "user kim@example.com, token=abc"),
                         new ErrorCause("java.io.IOException", null)),
                 "http-nio-8080-exec-1",
-                Phase.RUNTIME);
+                Phase.RUNTIME,
+                "com.example.UserService");
     }
 
     @Test
@@ -130,6 +131,7 @@ class MaskerTest {
         assertEquals(original.level(), masked.level());
         assertEquals(original.thread(), masked.thread());
         assertEquals(original.phase(), masked.phase());
+        assertEquals(original.loggerName(), masked.loggerName());   // 마스킹이 로거 이름을 잃지 않는다
     }
 
     @Test
