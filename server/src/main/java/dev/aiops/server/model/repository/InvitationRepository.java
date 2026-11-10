@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 // 초대 링크 (V3, RLS 없음 — 수락하는 사람은 아직 팀 멤버가 아니다, D-023)
@@ -22,4 +24,10 @@ public interface InvitationRepository extends JpaRepository<InvitationEntity, Lo
     @Query(value = "UPDATE invitation SET used_count = used_count + 1 "
             + "WHERE id = :id AND used_count < max_uses AND expires_at > now()", nativeQuery = true)
     int incrementUsedCount(@Param("id") Long id);
+
+    // 이 팀의 아직 유효한 링크 (AI-89, 최근 것부터)
+    List<InvitationEntity> findAllByTenantIdAndExpiresAtAfterOrderByCreatedAtDesc(Long tenantId, Instant now);
+
+    // 이 팀의 링크 1개 (다른 팀 링크 id를 넣어도 안 나온다, AI-89)
+    Optional<InvitationEntity> findByIdAndTenantId(Long id, Long tenantId);
 }

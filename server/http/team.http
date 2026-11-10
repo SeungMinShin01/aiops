@@ -1,4 +1,4 @@
-### 14단계 팀 API 수동 요청 모음 (AI-105 초대 수락. 팀원 링크 발급·목록·내보내기는 AI-89에서 이어 붙임)
+### 14단계 팀 API 수동 요청 모음 (AI-105 초대 수락, AI-89 팀원 링크·목록·내보내기)
 ### 준비: 브라우저로 GitHub 로그인(/oauth2/authorization/github) 후 개발자 도구에서 쿠키 두 개를 복사해 아래 변수에 넣는다
 ###   AIOPS_SESSION  → @session,  XSRF-TOKEN → @xsrf   (값은 커밋하지 않는다)
 ### 초대 토큰 원문은 링크 발급 응답(inviteUrl 끝부분)에서 1회만 볼 수 있다 → @ownerToken, @memberToken
@@ -25,3 +25,26 @@ X-XSRF-TOKEN: {{xsrf}}
 
 ### 4. 세션 없이 -> 401
 POST {{host}}/api/invitations/{{memberToken}}/accept
+
+### ---- AI-89 (조장 세션으로) ----
+
+### 5. 팀원 링크 발급 -> 201 { inviteUrl: ".../invite/<원문>" } (원문은 여기 1회)
+POST {{host}}/api/teams/{{teamId}}/invitations
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "maxUses": 10 }
+
+### 6. 유효한 링크 목록 -> 200 (원문·해시 없음)
+GET {{host}}/api/teams/{{teamId}}/invitations
+Cookie: AIOPS_SESSION={{session}}
+
+### 7. 팀원 목록 -> 200 (멤버 누구나)
+GET {{host}}/api/teams/{{teamId}}/members
+Cookie: AIOPS_SESSION={{session}}
+
+### 8. 팀원 내보내기 -> 204. 내보낸 사람 세션으로 7번을 다시 보내면 403
+DELETE {{host}}/api/teams/{{teamId}}/members/{{memberUserId}}
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
