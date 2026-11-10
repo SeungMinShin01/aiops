@@ -1,0 +1,27 @@
+### 14단계 팀 API 수동 요청 모음 (AI-105 초대 수락. 팀원 링크 발급·목록·내보내기는 AI-89에서 이어 붙임)
+### 준비: 브라우저로 GitHub 로그인(/oauth2/authorization/github) 후 개발자 도구에서 쿠키 두 개를 복사해 아래 변수에 넣는다
+###   AIOPS_SESSION  → @session,  XSRF-TOKEN → @xsrf   (값은 커밋하지 않는다)
+### 초대 토큰 원문은 링크 발급 응답(inviteUrl 끝부분)에서 1회만 볼 수 있다 → @ownerToken, @memberToken
+
+@session = 여기에-AIOPS_SESSION-값
+@xsrf = 여기에-XSRF-TOKEN-값
+@ownerToken = 여기에-조장-링크-토큰
+@memberToken = 여기에-팀원-링크-토큰
+
+### 1. 조장 링크 수락 -> 200 { role: "OWNER", next: "key-guide" }, 팀 ACTIVE
+POST {{host}}/api/invitations/{{ownerToken}}/accept
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### 2. 같은 조장 링크 두 번째 수락 (다른 계정 세션으로) -> 410
+POST {{host}}/api/invitations/{{ownerToken}}/accept
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### 3. 팀원 링크 수락 -> 200 { role: "MEMBER", next: "errors" }
+POST {{host}}/api/invitations/{{memberToken}}/accept
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### 4. 세션 없이 -> 401
+POST {{host}}/api/invitations/{{memberToken}}/accept
