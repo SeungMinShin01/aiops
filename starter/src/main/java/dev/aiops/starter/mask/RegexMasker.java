@@ -76,7 +76,8 @@ public class RegexMasker implements Masker {
                 }
             }
             return new ErrorEvent(event.time(), event.level(), event.exceptionType(),
-                    maskText(event.message()), event.stack(), causes, event.thread(), event.phase());
+                    maskText(event.message()), event.stack(), causes, event.thread(), event.phase(),
+                    event.loggerName());
         } catch (Throwable t) {
             return withoutMessages(event);
         }
@@ -86,7 +87,7 @@ public class RegexMasker implements Masker {
     private static ErrorEvent withoutMessages(ErrorEvent event) {
         try {
             return new ErrorEvent(event.time(), event.level(), event.exceptionType(),
-                    "", event.stack(), List.of(), event.thread(), event.phase());
+                    "", event.stack(), List.of(), event.thread(), event.phase(), event.loggerName());
         } catch (Throwable t) {
             return null;
         }
