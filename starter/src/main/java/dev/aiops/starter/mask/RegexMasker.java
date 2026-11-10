@@ -1,7 +1,11 @@
 package dev.aiops.starter.mask;
 
+import dev.aiops.protocol.ErrorCause;
+import dev.aiops.protocol.ErrorEvent;
 import dev.aiops.protocol.ProtocolConstants;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
@@ -33,7 +37,8 @@ public class RegexMasker implements Masker {
     private static final Pattern EMAIL = Pattern.compile(
             "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
 
-    private static final String SECRET_KEYS = "password|passwd|pwd|client[_-]?secret|secret|access[_-]?token|refresh[_-]?token|token|api[_-]?key";
+    private static final String SECRET_KEYS = "password|passwd|pwd|client[_-]?secret|secret|access[_-]?token|access[_-]?key"
+            + "|refresh[_-]?token|token|api[_-]?key";
 
     /** password=값, token: 값 (따옴표 없는 값). 키 이름과 구분자는 남긴다 */
     private static final Pattern KEY_VALUE = Pattern.compile(
@@ -56,13 +61,46 @@ public class RegexMasker implements Masker {
     /** 글자 바로 뒤의 '는 따옴표가 아니다 (Can't, it's) */
     private static final Pattern SINGLE_QUOTED = Pattern.compile("(?<![A-Za-z0-9])'[^'\\r\\n]+'");
 
+    // ---- 이벤트 단위 ----
+
     @Override
-    public String mask(String raw) {
-        if (raw == null) {
+    public ErrorEvent mask(ErrorEvent event) {
+        if (event == null) {
             return null;
         }
         try {
-            return cut(doMask(raw));
+            List<ErrorCause> causes = new ArrayList<>();
+            for (ErrorCause cause : event.causes()) {
+                if (cause != null) { // record가 List.copyOf를 써서 null 원소를 받지 않는다
+                    causes.add(new ErrorCause(cause.type(), maskText(cause.message())));
+                }
+            }
+            return new ErrorEvent(event.time(), event.level(), event.exceptionType(),
+                    maskText(event.message()), event.stack(), causes, event.thread(), event.phase());
+        } catch (Throwable t) {
+            return withoutMessages(event);
+        }
+    }
+
+    /** 이벤트를 다시 만들다 실패하면 메시지와 원인을 모두 비운다. 그것도 실패하면 null (어펜더가 건너뜀) */
+    private static ErrorEvent withoutMessages(ErrorEvent event) {
+        try {
+            return new ErrorEvent(event.time(), event.level(), event.exceptionType(),
+                    "", event.stack(), List.of(), event.thread(), event.phase());
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    // ---- 문자열 단위 ----
+
+    @Override
+    public String maskText(String text) {
+        if (text == null) {
+            return null;
+        }
+        try {
+            return cut(doMask(text));
         } catch (Throwable t) {
             return ""; // 유출보다 누락 (S-05)
         }
@@ -76,7 +114,7 @@ public class RegexMasker implements Masker {
         s = JWT.matcher(s).replaceAll(MASK);
         s = AIOPS_KEY.matcher(s).replaceAll(MASK);
         s = BEARER.matcher(s).replaceAll("$1 " + MASK);
-        s = EMAIL.matcher(s).replaceAll(MASK);
+        s = EMAIL.matcher(s).replaceAll(MASK + "@" + MASK);
         s = KEY_QUOTED.matcher(s).replaceAll("$1$2$3" + MASK + "$3");
         s = KEY_VALUE.matcher(s).replaceAll("$1$2" + MASK);
         s = LONG_TOKEN.matcher(s).replaceAll(MASK);
