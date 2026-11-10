@@ -70,4 +70,11 @@ public class TenantEntity {
         this.name = name;
         this.createdAt = Instant.now();
     }
+
+    /** 조장이 초대를 수락하면 팀을 연다 (AI-105). WAITING_OWNER일 때만 ACTIVE로 — 정지된 팀은 그대로 둔다 */
+    public void activateByOwner() {
+        if (this.status == TenantStatus.WAITING_OWNER) {
+            this.status = TenantStatus.ACTIVE;
+        }
+    }
 }
