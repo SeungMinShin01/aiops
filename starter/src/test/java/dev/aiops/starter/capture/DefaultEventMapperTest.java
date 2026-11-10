@@ -64,6 +64,7 @@ class DefaultEventMapperTest {
         assertEquals(Phase.RUNTIME, e.phase());
         assertEquals(Thread.currentThread().getName(), e.thread());
         assertTrue(e.time() > 0);
+        assertEquals("com.example.OrderService", e.loggerName());
     }
 
     @Test
@@ -119,15 +120,22 @@ class DefaultEventMapperTest {
     }
 
     @Test
-    void 줄_번호를_모르면_마이너스_1() {
+    void 네이티브_메서드_줄_번호는_원본_그대로() {
         RuntimeException e = new RuntimeException("native");
         e.setStackTrace(new StackTraceElement[] {
                 new StackTraceElement("java.lang.Thread", "sleep0", null, -2) // 네이티브 메서드
         });
         ErrorEvent mapped = mapper.map(errorLog("x", e), Phase.RUNTIME);
 
-        assertEquals(-1, mapped.stack().get(0).lineNumber());
+        assertEquals(-2, mapped.stack().get(0).lineNumber());
         assertNull(mapped.stack().get(0).fileName());
+    }
+
+    @Test
+    void phase를_null로_넘기면_null_그대로() {
+        // 부르는 쪽(어펜더·시작 실패) 버그가 서버 데이터에 드러나도록 바꾸지 않는다
+        assertNull(mapper.map(errorLog("x", threeLevels()), null).phase());
+        assertNull(mapper.mapThrowable(threeLevels(), null).phase());
     }
 
     @Test
@@ -157,6 +165,7 @@ class DefaultEventMapperTest {
         assertEquals(Phase.STARTUP, e.phase());
         assertTrue(e.time() >= before);
         assertFalse(e.stack().isEmpty());
+        assertNull(e.loggerName()); // 로거 없이 만든 이벤트
     }
 
     @Test
