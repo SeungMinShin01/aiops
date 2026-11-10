@@ -49,8 +49,9 @@ class MaskerTest {
                 Arguments.of("Duplicate entry 'kim' for key 'users.name'", "Duplicate entry '***' for key '***'"),
                 Arguments.of("value \"abc def\" invalid", "value \"***\" invalid"),
                 Arguments.of("password=\"p@ss w0rd\"", "password=\"***\""),
-                Arguments.of("Cannot invoke \"String.length()\" because \"s\" is null",
-                        "Cannot invoke \"***\" because \"***\" is null"),
+                Arguments.of("password=\"hunter2\"", "password=\"***\""),
+                Arguments.of("User \"kim\" not found", "User \"***\" not found"),
+                Arguments.of("Cannot find user \"kim\"", "Cannot find user \"***\""), // NPE 틀이 아님
                 Arguments.of("{\"email\":\"kim@x.com\"}", "{\"***\":\"***\"}"),
                 Arguments.of("Can't connect to 'db' because it's down", "Can't connect to '***' because it's down"));
     }
@@ -71,7 +72,12 @@ class MaskerTest {
                 "order 550e8400-e29b-41d4-a716-446655440000 not found",
                 "empty '' stays",
                 "tokenizer=bert",
-                "java.lang.IllegalStateException: Failed to load ApplicationContext");
+                "java.lang.IllegalStateException: Failed to load ApplicationContext",
+                // JVM이 만드는 NPE 메시지 틀 (D-094): 따옴표 안이 코드 이름이라 남긴다
+                "Cannot invoke \"String.length()\" because \"s\" is null",
+                "Cannot read field \"name\" because \"user\" is null",
+                "Cannot invoke \"com.example.Repo.find()\" because the return value of \"com.example.Svc.repo()\" is null",
+                "Cannot load from int array because \"<local1>\" is null");
     }
 
     @ParameterizedTest(name = "[{index}] {0}")
