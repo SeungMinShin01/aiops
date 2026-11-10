@@ -18,7 +18,7 @@ import java.util.Set;
 /**
  * EventMapper 구현 (부품 ④).
  * 스택은 바깥 예외의 프레임만 최대 30줄, 원인 예외는 타입·메시지만 최대 10단 (D-013).
- * 프레임을 거르지 않는다 — 팀 코드 판별은 서버 지문 계산(6단계)이 한다.
+ * 값은 원본 그대로 옮긴다: 프레임을 거르지 않고(팀 코드 판별은 서버 지문), 줄 번호·phase도 바꾸지 않는다.
  */
 public final class DefaultEventMapper implements EventMapper {
 
@@ -53,7 +53,8 @@ public final class DefaultEventMapper implements EventMapper {
                     framesOf(proxy),
                     causesOf(proxy),
                     event.getThreadName(),
-                    orRuntime(phase));
+                    phase,
+                    event.getLoggerName());
         } catch (Throwable t) {
             return null; // 그 로그만 건너뛴다 (④)
         }
@@ -103,7 +104,8 @@ public final class DefaultEventMapper implements EventMapper {
                     framesOf(throwable.getStackTrace()),
                     causesOf(throwable),
                     Thread.currentThread().getName(),
-                    orRuntime(phase));
+                    phase,
+                    null); // 로거를 거치지 않은 이벤트
         } catch (Throwable t) {
             return null;
         }
@@ -137,12 +139,8 @@ public final class DefaultEventMapper implements EventMapper {
 
     // ---- 공통 ----
 
+    /** StackTraceElement 값 그대로 (-1 모름, -2 네이티브 메서드) */
     private static StackFrame toFrame(StackTraceElement e) {
-        int line = e.getLineNumber() < 0 ? -1 : e.getLineNumber(); // 네이티브(-2)·모름 → -1
-        return new StackFrame(e.getClassName(), e.getMethodName(), e.getFileName(), line);
-    }
-
-    private static Phase orRuntime(Phase phase) {
-        return phase == null ? Phase.RUNTIME : phase;
+        return new StackFrame(e.getClassName(), e.getMethodName(), e.getFileName(), e.getLineNumber());
     }
 }
