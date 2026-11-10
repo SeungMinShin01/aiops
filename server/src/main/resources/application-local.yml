@@ -7,3 +7,9 @@ spring:
     user: aiops_owner
     password: owner_local
     locations: classpath:db/migration,classpath:db/seed # 로컬에서만 시드 포함
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false           # 로컬은 http (AI-79)

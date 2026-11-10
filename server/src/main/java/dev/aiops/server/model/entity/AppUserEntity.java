@@ -40,6 +40,12 @@ public class AppUserEntity {
         this.createdAt = Instant.now();
     }
 
+    // GitHub 재로그인 시 login·name 갱신 (AI-78). github_id는 바뀌지 않는다
+    public void updateProfile(String login, String name) {
+        this.login = login;
+        this.name = name;
+    }
+
     public void linkDiscord(String discordUserId) {
         this.discordUserId = discordUserId;
     }
