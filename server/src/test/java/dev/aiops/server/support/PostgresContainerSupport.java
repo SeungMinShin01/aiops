@@ -28,6 +28,14 @@ public abstract class PostgresContainerSupport {
         POSTGRES.start(); // 모든 테스트 클래스가 컨테이너 하나를 같이 쓴다
     }
 
+    // ---- 격리 테스트(AI-69)용: 시드·검증은 owner로 (owner는 테이블 소유자라 RLS를 무시한다) ----
+    public static final String OWNER_USER = "aiops_owner";
+    public static final String OWNER_PASSWORD = "owner_test";
+
+    public static String jdbcUrl() {
+        return POSTGRES.getJdbcUrl();
+    }
+
     @DynamicPropertySource
     static void dbProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);

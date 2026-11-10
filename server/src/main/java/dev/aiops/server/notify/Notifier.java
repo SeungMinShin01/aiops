@@ -18,4 +18,12 @@ public interface Notifier {
      * @param groupId  새로 만들어진 error_group.id
      */
     void notifyNewGroup(Long tenantId, Long groupId);
+
+    /**
+     * 팀·env 채널에 짧은 글 1건을 보낸다. 채널 자동 생성 직후 "연결 확인" 메시지용 (AI-92).
+     * 분당 제한·notify_local은 적용하지 않는다 (사람이 확인용으로 한 번 보내는 것).
+     *
+     * @param env "local" 또는 "prod"
+     */
+    void notifyText(Long tenantId, String env, String text);
 }

@@ -5,6 +5,7 @@ import dev.aiops.protocol.Heartbeat;
 import dev.aiops.protocol.HelloRequest;
 import dev.aiops.server.model.entity.AppSnapshotEntity;
 import dev.aiops.server.model.repository.AppSnapshotRepository;
+import dev.aiops.server.security.TenantContext;
 import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +28,10 @@ public class HelloService {
     }
 
     // AI-33 : hello 환경 정보 원본을 app_snapshot 에 1행 쌓고, 마지막 hello 시각(started_at)을 기록함
+    // 팀은 TenantFilter 가 키로 정해 TenantContext 에 넣은 값만 쓴다 (AI-73)
     @Transactional
-    public void storeHello(Long tenantId, String env, HelloRequest hello) {
+    public void storeHello(String env, HelloRequest hello) {
+        Long tenantId = TenantContext.require();
         AppInfo app = hello.app();
         String appName = app == null ? null : app.name();
         String hostHash = app == null ? null : app.hostHash();
@@ -42,7 +45,8 @@ public class HelloService {
 
     // AI-33 : heartbeat 는 last_seen_at 만 갱신함 (started 는 null → 기존 started_at 유지)
     @Transactional
-    public void recordHeartbeat(Long tenantId, String env, Heartbeat heartbeat) {
+    public void recordHeartbeat(String env, Heartbeat heartbeat) {
+        Long tenantId = TenantContext.require();
         AppInfo app = heartbeat.app();
         String appName = app == null ? null : app.name();
         String hostHash = app == null ? null : app.hostHash();

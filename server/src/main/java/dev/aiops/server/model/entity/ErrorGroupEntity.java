@@ -50,6 +50,18 @@ public class ErrorGroupEntity {
     @Column(name = "ai_explained_at", columnDefinition = "timestamptz")
     private Instant aiExplainedAt;
 
+    // ---- V3 (콘솔) ----
+
+    // IGNORED면 재발해도 알림 없음 (16단계)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "text")
+    private GroupStatus status = GroupStatus.OPEN;
+
+    // AI 설명 평가 👍/👎. 평가 전에는 null
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "text")
+    private Feedback feedback;
+
     public ErrorGroupEntity(Long tenantId, String fingerprint, String exceptionType,
             String topFrame, String firstEnv) {
         this.tenantId = tenantId;
