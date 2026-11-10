@@ -2,6 +2,10 @@ package dev.aiops.server.model.repository;
 
 import dev.aiops.server.model.entity.MembershipEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,4 +25,11 @@ public interface MembershipRepository extends JpaRepository<MembershipEntity, Lo
 
     // 팀원 목록 (14단계)
     List<MembershipEntity> findAllByTenantId(Long tenantId);
+
+    // 내보내기 (AI-89). 영향 행 수를 돌려준다 (0이면 그 팀 멤버가 아님 → 404).
+    // 짧은 자기 트랜잭션으로 바로 커밋 → 그 사람의 다음 요청부터 MembershipGuard가 403
+    @Transactional
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from MembershipEntity m where m.userId = :userId and m.tenantId = :tenantId")
+    int deleteByUserIdAndTenantId(@Param("userId") Long userId, @Param("tenantId") Long tenantId);
 }

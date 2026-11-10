@@ -1,6 +1,7 @@
 package dev.aiops.server.service;
 
 import dev.aiops.server.dto.AcceptResponse;
+import dev.aiops.server.dto.InviteSummary;
 import dev.aiops.server.model.entity.InvitationEntity;
 import dev.aiops.server.model.entity.MemberRole;
 import dev.aiops.server.model.entity.MembershipEntity;
@@ -19,6 +20,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 
 /**
  * 초대 링크 (14단계). 발급(issue)과 수락(accept)을 이 서비스 하나가 맡는다.
@@ -46,13 +48,16 @@ public class InvitationService {
     private final MembershipRepository memberships;
     private final TenantRepository tenants;
     private final String consoleBaseUrl;
+    private final Duration memberTtl;
 
     public InvitationService(InvitationRepository invitations, MembershipRepository memberships,
-            TenantRepository tenants, @Value("${aiops.console.base-url:}") String consoleBaseUrl) {
+            TenantRepository tenants, @Value("${aiops.console.base-url:}") String consoleBaseUrl,
+            @Value("${aiops.invite.member-ttl:7d}") Duration memberTtl) {
         this.invitations = invitations;
         this.memberships = memberships;
         this.tenants = tenants;
         this.consoleBaseUrl = consoleBaseUrl == null ? "" : consoleBaseUrl.replaceAll("/+$", "");
+        this.memberTtl = memberTtl;
     }
 
     /** 발급 결과. rawToken·inviteUrl은 이 응답에서 1회만 쓴다 (저장·로그 금지) */
@@ -83,6 +88,37 @@ public class InvitationService {
                 new InvitationEntity(tenantId, ApiKeyHasher.sha256Hex(raw), role, maxUses, expiresAt, createdBy));
         log.info("초대 발급 teamId={} role={} maxUses={} by={}", tenantId, role, maxUses, createdBy);   // 원문 없음
         return new Issued(saved.getId(), raw, inviteUrl(raw), expiresAt, maxUses);
+    }
+
+    /** 팀원 링크 발급 (AI-89, 조장). 여러 명 사용, 만료는 aiops.invite.member-ttl (7일) */
+    @Transactional
+    public Issued issueMemberInvite(Long tenantId, int maxUses, Long byUserId) {
+        return issue(tenantId, MemberRole.MEMBER, maxUses, memberTtl, byUserId);
+    }
+
+    /** 이 팀의 아직 유효한 링크 (원문·해시 없음, AI-89) */
+    @Transactional(readOnly = true)
+    public List<InviteSummary> listActive(Long tenantId) {
+        return invitations.findAllByTenantIdAndExpiresAtAfterOrderByCreatedAtDesc(tenantId, Instant.now()).stream()
+                .map(i -> new InviteSummary(i.getId(), i.getRole().name(), i.getUsedCount(), i.getMaxUses(),
+                        i.getExpiresAt(), i.getCreatedAt()))
+                .toList();
+    }
+
+    /**
+     * 링크 무효화 (AI-89). 지우지 않고 만료 시각을 지금으로 — 누가 언제 만든 링크였는지 기록은 남긴다.
+     *
+     * @return 이 팀의 링크가 있었으면 true (다른 팀 링크 id면 false → 404)
+     */
+    @Transactional
+    public boolean expire(Long tenantId, Long invitationId) {
+        return invitations.findByIdAndTenantId(invitationId, tenantId)
+                .map(i -> {
+                    i.expireNow();
+                    invitations.save(i);
+                    return true;
+                })
+                .orElse(false);
     }
 
     /** 콘솔 초대 화면 주소 */
