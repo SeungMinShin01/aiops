@@ -1,4 +1,4 @@
-### 13단계 관리자 API 수동 요청 모음 (AI-87 접근 기록부터. 이후 작업이 아래에 이어 붙임)
+### 13단계 관리자 API 수동 요청 모음 (AI-87 접근 기록, AI-82 기수. 이후 작업이 아래에 이어 붙임)
 ### 준비: 관리자 GitHub 계정으로 로그인(/oauth2/authorization/github)한 뒤 개발자 도구에서 쿠키를 복사해 아래 변수에 넣는다
 ###   AIOPS_SESSION → @session,  XSRF-TOKEN → @xsrf   (값은 커밋하지 않는다)
 ### 서버를 띄울 때 AIOPS_ADMIN_GITHUB_IDS 에 내 GitHub id 를 넣어야 관리자로 통과한다. 환경은 dev 선택
@@ -16,3 +16,33 @@ Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
 
 ### 3. 세션 없이 -> 401 (기록 안 됨)
 GET {{host}}/api/admin/access-log
+
+### ---- AI-82 기수 ----
+
+### 4. 기수 생성 -> 201 { cohortId, name, startDate, endDate, teamCount: 0 }
+POST {{host}}/api/admin/cohorts
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "name": "2026-3기", "startDate": "2026-09-01", "endDate": "2027-02-28" }
+
+### 5. 같은 이름으로 다시 -> 409 { error: "COHORT_NAME_DUPLICATE" }
+POST {{host}}/api/admin/cohorts
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "name": "2026-3기", "startDate": "2026-09-01", "endDate": "2027-02-28" }
+
+### 6. 종료일이 시작일보다 빠름 -> 400 { error: "COHORT_DATE_ORDER" }
+POST {{host}}/api/admin/cohorts
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+Content-Type: application/json
+
+{ "name": "2026-4기", "startDate": "2027-03-01", "endDate": "2027-02-01" }
+
+### 7. 기수 목록 -> 200 [{ cohortId, name, startDate, endDate, teamCount }] 최신 생성 순
+GET {{host}}/api/admin/cohorts
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
