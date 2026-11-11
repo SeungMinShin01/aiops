@@ -1,0 +1,18 @@
+### 13단계 관리자 API 수동 요청 모음 (AI-87 접근 기록부터. 이후 작업이 아래에 이어 붙임)
+### 준비: 관리자 GitHub 계정으로 로그인(/oauth2/authorization/github)한 뒤 개발자 도구에서 쿠키를 복사해 아래 변수에 넣는다
+###   AIOPS_SESSION → @session,  XSRF-TOKEN → @xsrf   (값은 커밋하지 않는다)
+### 서버를 띄울 때 AIOPS_ADMIN_GITHUB_IDS 에 내 GitHub id 를 넣어야 관리자로 통과한다. 환경은 dev 선택
+
+@session = 여기에-AIOPS_SESSION-값
+@xsrf = 여기에-XSRF-TOKEN-값
+
+### 1. 접근 기록 조회 (최근 200건) -> 200, 이 호출도 기록 1행이 더 생김
+GET {{host}}/api/admin/access-log
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+
+### 2. 관리자 한 명, 기간 지정 -> 200
+GET {{host}}/api/admin/access-log?adminUserId=1&from=2026-11-01T00:00:00Z
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+
+### 3. 세션 없이 -> 401 (기록 안 됨)
+GET {{host}}/api/admin/access-log
