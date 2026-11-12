@@ -62,7 +62,15 @@ public class ApiKeyResolver {
 
         // 5. 정지된 팀(SUSPENDED)의 키도 거부 — tenant.status(V3)가 생기면 13단계에서 이 자리에 조건 추가
 
-        // 6. 통과: 필요한 값만 꺼내서 결과 상자에 담아 캐시에 넣고 돌려줌
+        // 6. 마지막 사용 시각 (AI-88). 캐시가 비었을 때만 여기 오므로 키마다 1분(캐시 TTL)에 최대 1번 쓴다.
+        //    기록 실패가 수집을 막으면 안 된다
+        try {
+            apiKeyRepository.touchLastUsed(key.getId(), java.time.Instant.now());
+        } catch (RuntimeException e) {
+            log.warn("last_used_at 갱신 실패 keyId={}", key.getId());
+        }
+
+        // 7. 통과: 필요한 값만 꺼내서 결과 상자에 담아 캐시에 넣고 돌려줌
         ResolvedKey resolved = new ResolvedKey(key.getTenantId(), key.getEnv(), key.getId());
         cache.put(keyHash, resolved);
         return resolved;
