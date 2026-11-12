@@ -28,9 +28,23 @@ CLAUDE.md     이 레포에서 AI와 작업할 때의 규칙
 docker compose -f infra/local/docker-compose.yml up -d   # 로컬 DB (1단계 이후)
 ```
 
+### 로컬에서 끝까지 돌려보기 (마일스톤 1)
+
+```powershell
+docker compose -f infra/local/docker-compose.yml up -d                 # 1) DB
+./gradlew :server:bootRun --args='--spring.profiles.active=local'      # 2) 서버 (새 터미널)
+$env:AIOPS_KEY="aiops_l_local-dev-key-0001"; ./gradlew :sample-app:bootRun   # 3) 샘플 앱 (새 터미널)
+curl.exe -s http://localhost:8081/boom/npe                              # 4) 에러 내기
+docker exec -it aiops-postgres psql -U postgres -d aiops -P pager=off -c "select id, payload->>'exceptionType', left(payload->>'message', 60) from error_event order by id desc limit 5;"   # 5) 확인
+```
+
+- 키(`AIOPS_KEY`)는 **샘플 앱을 띄우는 같은 터미널**에서 넣는다. 다른 창에서 넣으면 `[aiops] aiops.api-key 없음, 비활성`이 뜨고 아무것도 안 보낸다.
+- 시드 키는 로컬 전용이다. 서버는 `local` 프로필이어야 시드 키가 들어간다.
+- PowerShell의 `curl`은 Invoke-WebRequest라서 `curl.exe`를 쓴다.
+
 ## 작업 흐름
 
-- 작업은 Jira(Aiops_) 하위 작업 단위로. 브랜치 → `develop` PR → CI 초록이면 본인이 머지.
+- 작업은 Jira(Aiops\_) 하위 작업 단위로. 브랜치 → `develop` PR → CI 초록이면 본인이 머지.
 - 순서와 규칙: [`docs/team-guide-pr.md`](docs/team-guide-pr.md)
 - 설계·결정 기록: [`docs/00-index.md`](docs/00-index.md)부터
 - AI에게 시킬 때: [`CLAUDE.md`](CLAUDE.md)

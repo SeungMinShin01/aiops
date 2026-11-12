@@ -1,4 +1,4 @@
-package dev.aiops.sample;
+package com.example.sample;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;

@@ -1,4 +1,4 @@
-package dev.aiops.sample;
+package com.example.sample;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
