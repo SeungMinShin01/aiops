@@ -1,6 +1,7 @@
 package dev.aiops.server.security;
 
 import dev.aiops.server.model.entity.ApiKeyEntity;
+import dev.aiops.server.model.entity.TenantStatus;
 import dev.aiops.server.model.repository.ApiKeyRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +61,17 @@ public class ApiKeyResolver {
                     return new InvalidApiKeyException("invalid api key");
                 });
 
-        // 5. 정지된 팀(SUSPENDED)의 키도 거부 — tenant.status(V3)가 생기면 13단계에서 이 자리에 조건 추가
+        // 5. 정지된 팀(SUSPENDED)의 키도 거부 (AI-85). 정지 판단은 여기 한 곳에서만 하고 api_key 에 플래그를 복사하지 않는다
+        //    tenant 는 RLS 가 없어 팀을 정하기 전에도 읽을 수 있다. 캐시에는 통과한 결과만 들어가므로
+        //    팀이 정지되면 AdminTeamService.suspend 가 커밋 뒤에 그 팀 키를 evict 한다 (안 하면 최대 60초 동안 살아 있음)
+        //    없는 키와 똑같은 메시지를 써서 "정지됐다"는 사실을 키 주인 아닌 쪽에 알리지 않는다
+        boolean suspended = apiKeyRepository.findTenantStatus(key.getTenantId())
+                .filter(status -> status == TenantStatus.SUSPENDED)
+                .isPresent();
+        if (suspended) {
+            log.warn("api key rejected: team suspended teamId={} hash={}", key.getTenantId(), keyHash.substring(0, 8));
+            throw new InvalidApiKeyException("invalid api key");
+        }
 
         // 6. 마지막 사용 시각 (AI-88). 캐시가 비었을 때만 여기 오므로 키마다 1분(캐시 TTL)에 최대 1번 쓴다.
         //    기록 실패가 수집을 막으면 안 된다
@@ -76,7 +87,7 @@ public class ApiKeyResolver {
         return resolved;
     }
 
-    // 키 폐기 커밋 뒤 호출 (ApiKeyService.revoke). 그 키로 오는 다음 요청은 DB 를 다시 봐서 401
+    // 키 폐기·팀 정지 커밋 뒤 호출 (ApiKeyService.revoke, AdminTeamService.suspend). 그 키로 오는 다음 요청은 DB 를 다시 봐서 401
     public void evict(String keyHash) {
         cache.evict(keyHash);
     }

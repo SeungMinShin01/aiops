@@ -85,4 +85,17 @@ public class TenantEntity {
             this.status = TenantStatus.ACTIVE;
         }
     }
+
+    // AI-85 : 관리자가 팀을 정지한다. 데이터·키는 그대로 두고 상태만 바꾼다
+    public void suspend() {
+        this.status = TenantStatus.SUSPENDED;
+    }
+
+    // AI-85 : 정지된 팀을 재개한다. 조장이 있으면 ACTIVE, 없으면 WAITING_OWNER (조장 없는 팀을 ACTIVE로 만들지 않기 위해)
+    // 정지 상태가 아니면 아무것도 하지 않는다
+    public void resume(boolean hasOwner) {
+        if (this.status == TenantStatus.SUSPENDED) {
+            this.status = hasOwner ? TenantStatus.ACTIVE : TenantStatus.WAITING_OWNER;
+        }
+    }
 }

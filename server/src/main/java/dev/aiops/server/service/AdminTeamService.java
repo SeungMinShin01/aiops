@@ -4,16 +4,19 @@ import dev.aiops.server.dto.BulkCreateRequest.TeamInput;
 import dev.aiops.server.dto.OwnerInviteResponse;
 import dev.aiops.server.dto.OwnerInviteStatus;
 import dev.aiops.server.dto.TeamRow;
+import dev.aiops.server.dto.TeamStatusResponse;
 import dev.aiops.server.model.entity.InvitationEntity;
 import dev.aiops.server.model.entity.MemberRole;
 import dev.aiops.server.model.entity.MembershipEntity;
 import dev.aiops.server.model.entity.TenantEntity;
 import dev.aiops.server.model.entity.TenantStatus;
+import dev.aiops.server.model.repository.ApiKeyRepository;
 import dev.aiops.server.model.repository.AppUserRepository;
 import dev.aiops.server.model.repository.CohortRepository;
 import dev.aiops.server.model.repository.InvitationRepository;
 import dev.aiops.server.model.repository.MembershipRepository;
 import dev.aiops.server.model.repository.TenantRepository;
+import dev.aiops.server.security.ApiKeyResolver;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -30,11 +33,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 // AI-83 : 관리자가 기수 안에 팀을 한꺼번에 만든다. 팀 상태는 WAITING_OWNER 로 시작 (D-071)
 // 팀 생성 직후 TeamCreated 이벤트만 발행한다. 디스코드 채널 만들기는 DiscordProvisionListener 가 커밋 뒤에 따로 처리 (AI-92)
 // AI-84 : 팀마다 1회용 조장 초대 링크 발급·조회. 토큰 만들기·해시·저장은 InvitationService.issue 가 한다
+// AI-85 : 팀 정지·재개. 정지 시 키 캐시를 비우고 TeamSuspended, 재개 시 TeamResumed 이벤트를 발행한다
 @Service
 public class AdminTeamService {
 
@@ -54,12 +60,16 @@ public class AdminTeamService {
     private final InvitationService invitationService;
     private final InvitationRepository invitations;
     private final Duration ownerTtl;
+    // AI-85 : 정지 시 그 팀 키를 캐시에서 지운다
+    private final ApiKeyRepository apiKeys;
+    private final ApiKeyResolver apiKeyResolver;
 
     public AdminTeamService(CohortRepository cohorts, TenantRepository tenants, MembershipRepository memberships,
                             AppUserRepository appUsers, ApplicationEventPublisher events,
                             PlatformTransactionManager transactionManager,
                             InvitationService invitationService, InvitationRepository invitations,
-                            @Value("${aiops.invite.owner-ttl:7d}") Duration ownerTtl) {
+                            @Value("${aiops.invite.owner-ttl:7d}") Duration ownerTtl,
+                            ApiKeyRepository apiKeys, ApiKeyResolver apiKeyResolver) {
         this.cohorts = cohorts;
         this.tenants = tenants;
         this.memberships = memberships;
@@ -69,6 +79,8 @@ public class AdminTeamService {
         this.invitationService = invitationService;
         this.invitations = invitations;
         this.ownerTtl = ownerTtl;
+        this.apiKeys = apiKeys;
+        this.apiKeyResolver = apiKeyResolver;
     }
 
     // AI-83 : 검증 → 팀마다 (저장 + 커밋) → 결과 모음. 이 메서드 자체는 @Transactional 이 아님
@@ -159,6 +171,57 @@ public class AdminTeamService {
                 .map(i -> new OwnerInviteStatus(i.getExpiresAt(), i.getUsedCount() >= i.getMaxUses()))
                 .orElseThrow(() -> new AdminApiException(HttpStatus.NOT_FOUND, "OWNER_INVITE_NOT_FOUND",
                         "유효한 조장 링크가 없습니다"));
+    }
+
+    // AI-85 : 팀 정지. 이미 정지된 팀이면 아무것도 안 하고 200 (멱등)
+    // 저장은 이 트랜잭션, 키 캐시 비우기와 디스코드 웹훅 삭제는 커밋 뒤 (외부 호출은 트랜잭션 밖)
+    // api_key 행은 지우지도 revoked_at 을 채우지도 않는다 → 재개하면 같은 키가 다시 동작
+    @Transactional
+    public TeamStatusResponse suspend(Long teamId) {
+        TenantEntity team = tenants.findById(teamId).orElseThrow(this::teamNotFound);
+        if (team.getStatus() == TenantStatus.SUSPENDED) {
+            return new TeamStatusResponse(team.getId(), team.getStatus());
+        }
+        team.suspend();
+        tenants.save(team);
+
+        // 캐시 때문에 필요: 안 지우면 정지 뒤에도 최대 60초 동안 그 팀 키가 통과한다
+        List<String> keyHashes = apiKeys.findAllHashesByTenantId(teamId);
+        afterCommit(() -> keyHashes.forEach(apiKeyResolver::evict));
+
+        // 커밋 뒤에 DiscordProvisionListener 가 DiscordProvisioner.suspend (웹훅 삭제, 채널 보관) 를 부른다
+        events.publishEvent(new TeamSuspended(teamId));
+        log.info("관리자 팀 정지 teamId={} keys={}", teamId, keyHashes.size());
+        return new TeamStatusResponse(team.getId(), team.getStatus());
+    }
+
+    // AI-85 : 팀 재개. 조장(OWNER 멤버)이 있으면 ACTIVE, 없으면 WAITING_OWNER 로 돌린다
+    // 정지 상태가 아닌 팀은 아무것도 안 하고 현재 상태를 200 으로 돌려준다
+    @Transactional
+    public TeamStatusResponse resume(Long teamId) {
+        TenantEntity team = tenants.findById(teamId).orElseThrow(this::teamNotFound);
+        if (team.getStatus() != TenantStatus.SUSPENDED) {
+            return new TeamStatusResponse(team.getId(), team.getStatus());
+        }
+        boolean hasOwner = memberships.findAllByTenantId(teamId).stream()
+                .anyMatch(m -> m.getRole() == MemberRole.OWNER);
+        team.resume(hasOwner);
+        tenants.save(team);
+
+        // 커밋 뒤에 DiscordProvisionListener 가 provision 을 다시 부른다 (멱등: 웹훅만 새로 생김)
+        events.publishEvent(new TeamResumed(teamId));
+        log.info("관리자 팀 재개 teamId={} status={}", teamId, team.getStatus());
+        return new TeamStatusResponse(team.getId(), team.getStatus());
+    }
+
+    // AI-85 : 트랜잭션이 커밋된 뒤에 실행 (ApiKeyService.revoke 와 같은 방식)
+    private static void afterCommit(Runnable action) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     private AdminApiException teamNotFound() {
