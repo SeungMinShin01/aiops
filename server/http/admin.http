@@ -1,4 +1,4 @@
-### 13단계 관리자 API 수동 요청 모음 (AI-87 접근 기록, AI-82 기수, AI-83 팀 일괄 생성. 이후 작업이 아래에 이어 붙임)
+### 13단계 관리자 API 수동 요청 모음 (AI-87 접근 기록, AI-82 기수, AI-83 팀 일괄 생성, AI-84 조장 링크. 이후 작업이 아래에 이어 붙임)
 ### 준비: 관리자 GitHub 계정으로 로그인(/oauth2/authorization/github)한 뒤 개발자 도구에서 쿠키를 복사해 아래 변수에 넣는다
 ###   AIOPS_SESSION → @session,  XSRF-TOKEN → @xsrf   (값은 커밋하지 않는다)
 ### 서버를 띄울 때 AIOPS_ADMIN_GITHUB_IDS 에 내 GitHub id 를 넣어야 관리자로 통과한다. 환경은 dev 선택
@@ -86,3 +86,25 @@ Content-Type: application/json
 ### 11. 기수의 팀 목록 -> 200 5행 (discordStatus NONE, ownerLogin null)
 GET {{host}}/api/admin/teams?cohortId=1
 Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+
+### ---- AI-84 조장 초대 링크 ----
+### 아래 teamId 는 11번 목록의 teamId (보통 1)
+
+### 12. 조장 링크 발급 -> 201 { inviteUrl: ".../invite/<원문>", expiresAt }  원문은 이 응답에만 나옴. DB에는 해시만
+POST {{host}}/api/admin/teams/1/owner-invite
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### 13. 다시 발급 -> 201 새 링크. 12번에서 받은 링크는 자동으로 무효 (재발급 = 잃어버렸을 때)
+POST {{host}}/api/admin/teams/1/owner-invite
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### 14. 지금 유효한 링크 상태 -> 200 { expiresAt, used: false } (원문 없음). 유효한 링크가 없으면 404
+GET {{host}}/api/admin/teams/1/owner-invite
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+
+### 15. 없는 팀 -> 404 { error: "TEAM_NOT_FOUND" }  (이미 조장이 합류한 ACTIVE 팀 번호를 넣으면 409 TEAM_ALREADY_HAS_OWNER)
+POST {{host}}/api/admin/teams/9999/owner-invite
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
