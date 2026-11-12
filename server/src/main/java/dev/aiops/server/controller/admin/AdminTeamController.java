@@ -4,6 +4,7 @@ import dev.aiops.server.dto.BulkCreateRequest;
 import dev.aiops.server.dto.OwnerInviteResponse;
 import dev.aiops.server.dto.OwnerInviteStatus;
 import dev.aiops.server.dto.TeamRow;
+import dev.aiops.server.dto.TeamStatusResponse;
 import dev.aiops.server.security.CurrentUser;
 import dev.aiops.server.service.AdminTeamService;
 import java.util.List;
@@ -17,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// AI-83 : /api/admin/teams/** . 이후 작업(suspend, resume)이 이 클래스에 이어서 추가함
-// 관리자 여부는 AdminGuard 가 이미 검사했고, 호출 기록은 AdminAccessLogInterceptor 가 자동으로 남김
+// AI-83 : /api/admin/teams/** (일괄 생성·목록), AI-84 : 조장 링크, AI-85 : 정지·재개
+// 관리자 여부는 AdminGuard 가 이미 검사했고, 호출 기록은 AdminAccessLogInterceptor 가 자동으로 남김 (경로의 teamId 가 tenant_id 로 기록됨)
 @RestController
 @RequestMapping("/api/admin/teams")
 public class AdminTeamController {
@@ -53,5 +54,17 @@ public class AdminTeamController {
     @GetMapping("/{teamId}/owner-invite")
     public OwnerInviteStatus ownerInviteStatus(@PathVariable Long teamId) {
         return adminTeamService.ownerInviteStatus(teamId);
+    }
+
+    // AI-85 : 200 { teamId, status: "SUSPENDED" }. 이미 정지된 팀이어도 200
+    @PostMapping("/{teamId}/suspend")
+    public TeamStatusResponse suspend(@PathVariable Long teamId) {
+        return adminTeamService.suspend(teamId);
+    }
+
+    // AI-85 : 200 { teamId, status: "ACTIVE" | "WAITING_OWNER" }. 조장이 없던 팀은 WAITING_OWNER 로 돌아간다
+    @PostMapping("/{teamId}/resume")
+    public TeamStatusResponse resume(@PathVariable Long teamId) {
+        return adminTeamService.resume(teamId);
     }
 }

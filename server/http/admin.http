@@ -1,4 +1,4 @@
-### 13단계 관리자 API 수동 요청 모음 (AI-87 접근 기록, AI-82 기수, AI-83 팀 일괄 생성, AI-84 조장 링크. 이후 작업이 아래에 이어 붙임)
+### 13단계 관리자 API 수동 요청 모음 (AI-87 접근 기록, AI-82 기수, AI-83 팀 일괄 생성, AI-84 조장 링크, AI-85 정지·재개. 이후 작업이 아래에 이어 붙임)
 ### 준비: 관리자 GitHub 계정으로 로그인(/oauth2/authorization/github)한 뒤 개발자 도구에서 쿠키를 복사해 아래 변수에 넣는다
 ###   AIOPS_SESSION → @session,  XSRF-TOKEN → @xsrf   (값은 커밋하지 않는다)
 ### 서버를 띄울 때 AIOPS_ADMIN_GITHUB_IDS 에 내 GitHub id 를 넣어야 관리자로 통과한다. 환경은 dev 선택
@@ -108,3 +108,45 @@ Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
 POST {{host}}/api/admin/teams/9999/owner-invite
 Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
 X-XSRF-TOKEN: {{xsrf}}
+
+### ---- AI-85 팀 정지·재개 ----
+### 아래 teamId 는 키가 있는 팀 번호로 바꿔서 쓴다. {{apiKey}} 는 그 팀의 local 키 (http-client.env.json 의 dev)
+### 순서: 17(정상 202) -> 16(정지) -> 18(401, Starter 는 조용히 버림) -> 19(재개) -> 20(다시 202)
+
+### 16. 팀 정지 -> 200 { teamId, status: "SUSPENDED" }. 이미 정지된 팀이어도 200
+POST {{host}}/api/admin/teams/1/suspend
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### 17. 그 팀 키로 에러 보내기 (정지 전) -> 202 / (정지 후) -> 401
+POST {{host}}/v1/events
+Content-Type: application/json
+X-AIOPS-KEY: {{apiKey}}
+
+{
+  "env": "local",
+  "app": { "name": "sample-app", "commit": "abc1234", "dirty": false, "hostHash": "a1b2c3d4e5f6" },
+  "events": [
+    { "time": 1762000000000, "level": "ERROR", "exceptionType": "java.lang.IllegalStateException", "message": "정지 확인용" }
+  ],
+  "droppedCount": 0
+}
+
+### 18. 팀 재개 -> 200 { teamId, status: "ACTIVE" } (조장이 없던 팀은 "WAITING_OWNER")
+POST {{host}}/api/admin/teams/1/resume
+Cookie: AIOPS_SESSION={{session}}; XSRF-TOKEN={{xsrf}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### 19. 재개 뒤 같은 키로 다시 -> 202 (키를 새로 만들지 않아도 같은 키가 다시 동작)
+POST {{host}}/v1/events
+Content-Type: application/json
+X-AIOPS-KEY: {{apiKey}}
+
+{
+  "env": "local",
+  "app": { "name": "sample-app", "commit": "abc1234", "dirty": false, "hostHash": "a1b2c3d4e5f6" },
+  "events": [
+    { "time": 1762000000000, "level": "ERROR", "exceptionType": "java.lang.IllegalStateException", "message": "재개 확인용" }
+  ],
+  "droppedCount": 0
+}
