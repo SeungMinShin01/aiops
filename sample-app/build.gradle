@@ -7,6 +7,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'   // /boom/sql, 시작 시 DB 확인
     runtimeOnly 'org.postgresql:postgresql'
 
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'   // AI-43 재시작 후 재장착 확인용
+
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
