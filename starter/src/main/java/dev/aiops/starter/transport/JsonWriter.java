@@ -14,7 +14,7 @@ public final class JsonWriter {
 
     /** record 클래스별 필드 목록. 매번 리플렉션하지 않도록 한 번만 읽어 둔다 */
     private static final Map<Class<?>, RecordComponent[]> COMPONENTS = new ConcurrentHashMap<>();
-    private static final char[] HEX = "0123456789bcdef".toCharArray();
+    private static final char[] HEX = "0123456789abcdef".toCharArray();
 
     private JsonWriter() {
     }

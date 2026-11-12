@@ -87,7 +87,10 @@ class JsonWriterTest {
                 Arguments.of("탭", "a\tb", "\"a\\tb\""),
                 Arguments.of("한글", "사용자 없음", "\"사용자 없음\""),
                 Arguments.of("이모지", "fire \uD83D\uDD25", "\"fire \uD83D\uDD25\""),
-                Arguments.of("제어문자", "a\u0001b", "\"a\\u0001b\""));
+                Arguments.of("제어문자", "a\u0001b", "\"a\\u0001b\""),
+                Arguments.of("제어문자 0x0F", "a\u000fb", "\"a\\u000fb\""),
+                Arguments.of("ESC 0x1B", "a\u001bb", "\"a\\u001bb\""),
+                Arguments.of("제어문자 0x1F", "a\u001fb", "\"a\\u001fb\""));
     }
 
     @ParameterizedTest(name = "{0}")
