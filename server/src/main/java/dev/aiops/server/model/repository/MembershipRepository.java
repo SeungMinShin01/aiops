@@ -7,7 +7,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 // 사용자 ↔ 팀 (V3, RLS 없음 — 팀을 정하기 전에 읽어야 한다, D-023)
@@ -32,4 +35,22 @@ public interface MembershipRepository extends JpaRepository<MembershipEntity, Lo
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from MembershipEntity m where m.userId = :userId and m.tenantId = :tenantId")
     int deleteByUserIdAndTenantId(@Param("userId") Long userId, @Param("tenantId") Long tenantId);
+
+    // AI-86 : 팀들의 조장(OWNER) 로그인 이름 (한 줄 = [팀 번호, 로그인]). role = OWNER 와 tenant_id IN (...) 이 고정된 조회
+    @Query("select m.tenantId, u.login from MembershipEntity m, AppUserEntity u "
+            + "where u.id = m.userId and m.role = dev.aiops.server.model.entity.MemberRole.OWNER "
+            + "and m.tenantId in :tenantIds")
+    List<Object[]> findOwnerRows(@Param("tenantIds") Collection<Long> tenantIds);
+
+    // AI-86 : 관리자 전체 현황용. 팀 번호 → 조장 로그인 (조장이 없는 팀은 키가 없음). 한 번의 조회로 가져온다
+    default Map<Long, String> findOwnersByTenantIds(Collection<Long> tenantIds) {
+        Map<Long, String> owners = new HashMap<>();
+        if (tenantIds == null || tenantIds.isEmpty()) {
+            return owners;
+        }
+        for (Object[] row : findOwnerRows(tenantIds)) {
+            owners.putIfAbsent(((Number) row[0]).longValue(), (String) row[1]);   // 조장이 둘이어도 첫 번째만
+        }
+        return owners;
+    }
 }
