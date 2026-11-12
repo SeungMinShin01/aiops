@@ -71,6 +71,14 @@ public class TenantEntity {
         this.createdAt = Instant.now();
     }
 
+    // AI-83 : 관리자가 기수 안에 만드는 팀. 조장 합류 전이라 WAITING_OWNER 로 시작 (discord_status = NONE, notify_local = true 는 기본값)
+    public TenantEntity(String name, Long cohortId, LocalDate projectEndDate) {
+        this(name);
+        this.cohortId = cohortId;
+        this.projectEndDate = projectEndDate;
+        this.status = TenantStatus.WAITING_OWNER;
+    }
+
     /** 조장이 초대를 수락하면 팀을 연다 (AI-105). WAITING_OWNER일 때만 ACTIVE로 — 정지된 팀은 그대로 둔다 */
     public void activateByOwner() {
         if (this.status == TenantStatus.WAITING_OWNER) {
