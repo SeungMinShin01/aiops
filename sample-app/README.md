@@ -7,10 +7,10 @@ Starter는 의존성으로만 쓰고 내부 클래스를 직접 호출하지 않
 
 로컬 Postgres(`infra/local`)와 서버(`:server:bootRun`, 8080)를 먼저 띄운다.
 
-    $env:AIOPS_KEY="aiops_l_local-dev-key-0001"   # 로컬 시드 키
+    cp infra/local/.env.example infra/local/.env   # 처음 한 번 (AIOPS_KEY = 로컬 시드 키가 들어 있다)
     ./gradlew :sample-app:bootRun                  # 8081
 
-키 없이 실행하면 Starter가 경고 한 줄만 남기고 꺼진다.
+키(`AIOPS_KEY`)는 `infra/local/.env`에서 읽는다(`gradle/dotenv.gradle`). 키 없이 실행하면 Starter가 경고 한 줄만 남기고 꺼진다.
 
 시작 실패 재현:
 
