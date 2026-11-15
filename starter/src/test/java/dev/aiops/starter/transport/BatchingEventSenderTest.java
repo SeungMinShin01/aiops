@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.concurrent.CountDownLatch;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -185,6 +186,33 @@ class BatchingEventSenderTest {
                 transport.batches.stream().map(b -> b.events().size()).toList());
     }
 
+    @Test
+    void 전송_스레드가_돌고_있으면_flushNow는_그_스레드가_보낸다() {
+        BatchingEventSender s = newSender();
+        s.start();
+        offer(3);
+
+        s.flushNow(Duration.ofSeconds(2));
+
+        assertEquals(1, transport.batches.size());
+        assertEquals(BatchingEventSender.THREAD_NAME, transport.lastSendThread);
+    }
+
+    @Test
+    void 전송이_막혀_있어도_flushNow는_maxWait_안에_돌아온다() {
+        BatchingEventSender s = newSender();
+        transport.block = new CountDownLatch(1); // 응답이 오지 않는 서버 흉내
+        s.start();
+        offer(3);
+
+        long started = System.nanoTime();
+        s.flushNow(Duration.ofMillis(300));
+        long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+        transport.block.countDown();
+
+        assertTrue(elapsedMs < 1500, "0.3초만 기다리고 돌아와야 한다: " + elapsedMs + "ms");
+    }
+
     // ---- 진짜 스레드 ----
 
     @Test
@@ -249,10 +277,21 @@ class BatchingEventSenderTest {
         final AtomicInteger hellos = new AtomicInteger();
         volatile boolean sendResult = true;
         volatile boolean throwError = false;
+        volatile String lastSendThread;
+        volatile CountDownLatch block;
 
         @Override
         public boolean send(EventBatch batch) {
             sendCalls.incrementAndGet();
+            lastSendThread = Thread.currentThread().getName();
+            CountDownLatch waitFor = block;
+            if (waitFor != null) {
+                try {
+                    waitFor.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
             if (throwError) {
                 throw new Error("테스트용 Error");
             }
