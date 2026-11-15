@@ -76,7 +76,7 @@ aiops:
   llm:                          # AI-54 : OpenAI 호환 chat API. 키가 비어 있으면 FakeLlmClient
     api-key: ${AIOPS_LLM_API_KEY:}          # 비밀값 — 환경변수로만 (규칙 10)
     base-url: ${AIOPS_LLM_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
-    model: ${AIOPS_LLM_MODEL:gemini-3.8-flash}
+    model: ${AIOPS_LLM_MODEL:gemini-3.5-flash-lite}   # 3.8-flash는 응답이 20초를 넘겨 실패 (11/15 확인)
     timeout: 20s                # 연결·읽기 타임아웃
     daily-limit: 200            # AI-57 : 하루 LLM 호출 상한 (전체 팀 합산). 넘으면 설명 없이 진행
     retry-window: PT24H         # AI-57 : 이 시간 안에 생긴 그룹만 설명을 다시 시도
