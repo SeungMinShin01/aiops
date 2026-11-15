@@ -17,7 +17,10 @@ public interface EventSender {
     /** 앱 준비 완료 후 hello 1건을 맡긴다. 전송 스레드가 다음 바퀴에 1회 보낸다 (실패하면 포기) */
     void submitHello(HelloRequest hello);
 
-    /** 부른 스레드에서 직접 버퍼를 비워 보낸다. 최대 maxWait까지만 (종료 훅·시작 실패용) */
+    /*
+     * 버퍼를 지금 비워 보낸다. 부른 쪽은 최대 maxWait까지만 기다린다 (종료 훅·시작 실패용).
+     * 전송 스레드가 돌고 있으면 그 스레드가 보내고, 없으면 부른 스레드가 직접 보낸다
+     */
     void flushNow(Duration maxWait);
 
     /** 스레드 정지. 최대 1초 기다린다 */
