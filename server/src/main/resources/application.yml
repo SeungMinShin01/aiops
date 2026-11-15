@@ -73,3 +73,8 @@ aiops:
     member-ttl: 7d              # 팀원 링크 (AI-89 조장 발급)
   admin:
     github-ids: ${AIOPS_ADMIN_GITHUB_IDS:}   # 관리자 GitHub id (쉼표 구분 숫자). 비어 있으면 관리자 없음 (A-06)
+  llm:                          # AI-54 : OpenAI 호환 chat API. 키가 비어 있으면 FakeLlmClient
+    api-key: ${AIOPS_LLM_API_KEY:}          # 비밀값 — 환경변수로만 (규칙 10)
+    base-url: ${AIOPS_LLM_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
+    model: ${AIOPS_LLM_MODEL:gemini-3.8-flash}
+    timeout: 20s                # 연결·읽기 타임아웃
