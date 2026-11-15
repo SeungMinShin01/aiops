@@ -1,5 +1,6 @@
 apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
+apply from: rootProject.file('gradle/dotenv.gradle')   // bootRun 때 infra/local/.env 읽기
 
 dependencies {
     implementation project(':starter')                      // 다른 조 앱처럼 의존성으로만 쓴다
