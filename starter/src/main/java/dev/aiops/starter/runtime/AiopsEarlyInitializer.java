@@ -38,8 +38,11 @@ public class AiopsEarlyInitializer implements ApplicationListener<ApplicationEve
             if (AiopsRuntime.startIfAbsent(prepared.getEnvironment()) != null) {
                 AiopsRuntime.attachAppenderIfMissing();
             }
-        } else if (event instanceof ApplicationPreparedEvent || event instanceof ApplicationReadyEvent) {
+        } else if (event instanceof ApplicationPreparedEvent) {
             AiopsRuntime.attachAppenderIfMissing();
+        } else if (event instanceof ApplicationReadyEvent ready) {
+            AiopsRuntime.attachAppenderIfMissing();
+            AiopsRuntime.submitHelloOnce(ready.getApplicationContext().getEnvironment()); // 환경 정보 1회 (AI-47)
         } else if (event instanceof ApplicationFailedEvent failed) {
             AiopsRuntime.reportStartupFailure(failed.getException()); // 시작 실패 (AI-45)
         }

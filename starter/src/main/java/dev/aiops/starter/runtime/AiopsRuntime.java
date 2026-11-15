@@ -1,10 +1,15 @@
 package dev.aiops.starter.runtime;
 
 import dev.aiops.protocol.AppInfo;
+import dev.aiops.protocol.ErrorEvent;
+import dev.aiops.protocol.HelloRequest;
+import dev.aiops.protocol.Phase;
 import dev.aiops.starter.capture.DefaultEventMapper;
 import dev.aiops.starter.capture.EventMapper;
 import dev.aiops.starter.config.AiopsSettings;
 import dev.aiops.starter.config.StarterVersion;
+import dev.aiops.starter.env.DefaultEnvCollector;
+import dev.aiops.starter.env.GitInfoReader;
 import dev.aiops.starter.mask.Masker;
 import dev.aiops.starter.mask.RegexMasker;
 import dev.aiops.starter.transport.BatchingEventSender;
@@ -13,12 +18,10 @@ import dev.aiops.starter.transport.EventBuffer;
 import dev.aiops.starter.transport.EventSender;
 import dev.aiops.starter.transport.HttpTransport;
 import dev.aiops.starter.transport.Transport;
-import dev.aiops.protocol.ErrorEvent;
-import dev.aiops.protocol.Phase;
-import java.time.Duration;
 import org.springframework.core.env.Environment;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -39,16 +42,19 @@ public final class AiopsRuntime {
     static final Duration SHUTDOWN_FLUSH_WAIT = Duration.ofSeconds(2);
     static final String SHUTDOWN_THREAD_NAME = "aiops-shutdown";
     private static final AtomicBoolean HOOK_REGISTERED = new AtomicBoolean();
+    private static final AtomicBoolean HELLO_SUBMITTED = new AtomicBoolean();
 
     private final AiopsSettings settings;
+    private final AppInfo appInfo;
     private final EventBuffer buffer;
     private final EventSender sender;
     private final EventMapper mapper;
     private final Masker masker;
 
-    private AiopsRuntime(AiopsSettings settings, EventBuffer buffer, EventSender sender,
+    private AiopsRuntime(AiopsSettings settings, AppInfo appInfo, EventBuffer buffer, EventSender sender,
             EventMapper mapper, Masker masker) {
         this.settings = settings;
+        this.appInfo = appInfo;
         this.buffer = buffer;
         this.sender = sender;
         this.mapper = mapper;
@@ -75,11 +81,13 @@ public final class AiopsRuntime {
                 }
                 EventBuffer buffer = new BoundedEventBuffer(settings.bufferCapacity());
                 Transport transport = new HttpTransport(settings);
-                AppInfo appInfo = new AppInfo(settings.appName(), null, null, HostHash.get());
+                GitInfoReader.GitInfo git = GitInfoReader.read(); // 시작 때 1번만 (파일 읽기)
+                AppInfo appInfo = new AppInfo(settings.appName(), git.commit(), git.dirty(), HostHash.get());
                 EventSender sender = new BatchingEventSender(buffer, transport, settings, appInfo,
                         Clock.systemUTC());
                 sender.start();
-                instance = new AiopsRuntime(settings, buffer, sender, new DefaultEventMapper(), new RegexMasker());
+                instance = new AiopsRuntime(settings, appInfo, buffer, sender, new DefaultEventMapper(),
+                        new RegexMasker());
                 registerShutdownHookOnce(); // JVM당 1번. 재시작으로 다시 불려도 늘지 않는다
                 return instance;
             } catch (Throwable t) {
@@ -127,6 +135,27 @@ public final class AiopsRuntime {
             r.sender.flushNow(STARTUP_FAILURE_WAIT);
         } catch (Throwable ignored) {
             // Exception이 아니라 Throwable (D-087). 조용히 버린다
+        }
+    }
+
+    /**
+     * 앱이 준비된 뒤 환경 정보를 모아 hello로 맡긴다 (AI-47). JVM당 1번.
+     * 전송은 전송 스레드가 다음 바퀴에 한다 (여기서 기다리지 않는다).
+     * hello는 덤이다: 실패해도 Starter를 끄지 않고 조용히 넘어간다.
+     */
+    public static void submitHelloOnce(Environment environment) {
+        try {
+            AiopsRuntime r = instance;
+            if (r == null || DISABLED.get() || environment == null) {
+                return;
+            }
+            if (!HELLO_SUBMITTED.compareAndSet(false, true)) {
+                return; // 재시작으로 준비 완료가 다시 와도 한 번만
+            }
+            HelloRequest hello = new DefaultEnvCollector(r.settings.env(), r.appInfo).collect(environment);
+            r.sender.submitHello(hello);
+        } catch (Throwable ignored) {
+            // Exception이 아니라 Throwable (D-087)
         }
     }
 
@@ -247,6 +276,7 @@ public final class AiopsRuntime {
                 instance = null;
             }
             DISABLED.set(false);
+            HELLO_SUBMITTED.set(false); // 훅 등록(HOOK_REGISTERED)은 되돌리지 않는다: 훅은 JVM에 남아 있다
         }
     }
 }
