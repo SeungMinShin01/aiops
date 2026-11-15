@@ -35,6 +35,11 @@ public final class AiopsRuntime {
     /** 시작 실패를 보낼 때 기다리는 최대 시간. 앱 종료를 우리 때문에 늦추지 않는다 (늘리지 않는다) */
     static final Duration STARTUP_FAILURE_WAIT = Duration.ofSeconds(3);
 
+    /** 종료할 때 남은 이벤트를 보내며 기다리는 최대 시간 (늘리지 않는다) */
+    static final Duration SHUTDOWN_FLUSH_WAIT = Duration.ofSeconds(2);
+    static final String SHUTDOWN_THREAD_NAME = "aiops-shutdown";
+    private static final AtomicBoolean HOOK_REGISTERED = new AtomicBoolean();
+
     private final AiopsSettings settings;
     private final EventBuffer buffer;
     private final EventSender sender;
@@ -75,6 +80,7 @@ public final class AiopsRuntime {
                         Clock.systemUTC());
                 sender.start();
                 instance = new AiopsRuntime(settings, buffer, sender, new DefaultEventMapper(), new RegexMasker());
+                registerShutdownHookOnce(); // JVM당 1번. 재시작으로 다시 불려도 늘지 않는다
                 return instance;
             } catch (Throwable t) {
                 disable(t);
@@ -121,6 +127,47 @@ public final class AiopsRuntime {
             r.sender.flushNow(STARTUP_FAILURE_WAIT);
         } catch (Throwable ignored) {
             // Exception이 아니라 Throwable (D-087). 조용히 버린다
+        }
+    }
+
+    /**
+     * JVM 종료 훅을 한 번만 등록한다 (AI-46). 등록했으면 true.
+     * Spring의 @PreDestroy가 아니라 JVM 훅인 이유: Starter는 Bean이 아니고, 컨텍스트가 뜨지 못한 경우에도 돌아야
+     * 한다.
+     * 훅은 한 번 등록하면 뺄 필요가 없다 — 실행될 때 그 시점의 instance를 본다.
+     */
+    static boolean registerShutdownHookOnce() {
+        if (!HOOK_REGISTERED.compareAndSet(false, true)) {
+            return false;
+        }
+        try {
+            Thread hook = new Thread(() -> onJvmShutdown(), SHUTDOWN_THREAD_NAME); // 데몬 아님: JVM이 기다려 준다
+            Runtime.getRuntime().addShutdownHook(hook);
+            return true;
+        } catch (Throwable t) {
+            return false; // 이미 종료 중이면 등록할 수 없다. 조용히 넘어간다
+        }
+    }
+
+    static boolean shutdownHookRegistered() {
+        return HOOK_REGISTERED.get();
+    }
+
+    /**
+     * 앱이 끝날 때(Ctrl+C, kill, 컨테이너 stop) 버퍼에 남은 이벤트를 마지막으로 보낸다. 최대 2초.
+     * 강제 종료(kill -9)에서는 실행되지 않는다 — 그건 포기한다.
+     * 훅 안의 예외는 다른 훅을 방해할 수 있어서 아무것도 밖으로 내보내지 않는다.
+     */
+    static void onJvmShutdown() {
+        try {
+            AiopsRuntime r = instance;
+            if (r == null) {
+                return; // 시작 전이거나 꺼짐
+            }
+            r.sender.flushNow(SHUTDOWN_FLUSH_WAIT);
+            r.sender.stop();
+        } catch (Throwable ignored) {
+            // Exception이 아니라 Throwable (D-087)
         }
     }
 
