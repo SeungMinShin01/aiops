@@ -44,6 +44,9 @@ public final class AiopsRuntime {
     private static final AtomicBoolean HOOK_REGISTERED = new AtomicBoolean();
     private static final AtomicBoolean HELLO_SUBMITTED = new AtomicBoolean();
 
+    /** 안전성 테스트(AI-49)가 초기화 실패를 흉내 낼 때 쓰는 시스템 속성 이름. 운영에서는 설정하지 않는다 */
+    static final String FAIL_ON_INIT_PROPERTY = "aiops.test.fail-on-init";
+
     private final AiopsSettings settings;
     private final AppInfo appInfo;
     private final EventBuffer buffer;
@@ -75,6 +78,7 @@ public final class AiopsRuntime {
                 return instance;
             }
             try {
+                failOnInitIfRequested(); // 안전성 테스트 전용. 평소에는 아무 일도 하지 않는다
                 AiopsSettings settings = AiopsSettings.fromOrNull(environment);
                 if (settings == null) {
                     return null; // 경고는 AiopsSettings가 이미 찍음
@@ -94,6 +98,17 @@ public final class AiopsRuntime {
                 disable(t);
                 return null;
             }
+        }
+    }
+
+    /**
+     * 안전성 테스트 6번(AI-49, D-087) 전용 스위치. 시스템 속성이 "nosuchmethod"면 초기화 중
+     * NoSuchMethodError를 던진다 (Boot 버전이 안 맞을 때 실제로 나는 오류 흉내).
+     * 운영에서는 이 속성이 없어 읽기 1번으로 끝난다. 앱 설정(yml·환경변수)으로는 켤 수 없다.
+     */
+    private static void failOnInitIfRequested() {
+        if ("nosuchmethod".equals(System.getProperty(FAIL_ON_INIT_PROPERTY))) {
+            throw new NoSuchMethodError(FAIL_ON_INIT_PROPERTY);
         }
     }
 
