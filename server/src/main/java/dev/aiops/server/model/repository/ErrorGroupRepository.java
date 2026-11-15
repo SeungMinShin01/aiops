@@ -2,6 +2,7 @@ package dev.aiops.server.model.repository;
 
 import dev.aiops.server.model.entity.ErrorGroupEntity;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -23,4 +24,12 @@ public interface ErrorGroupRepository extends JpaRepository<ErrorGroupEntity, Lo
     int updateExplanationIfNull(@Param("id") Long id, @Param("tenantId") Long tenantId,
                                 @Param("explanation") String explanation,
                                 @Param("explainedAt") Instant explainedAt);
+        // AI-57 : 설명이 아직 없는 최근 그룹 id (오래된 순). 팀은 RLS가 거른다
+    @Query(value = """
+            SELECT id FROM error_group
+            WHERE ai_explanation IS NULL AND first_seen_at > CAST(:since AS timestamptz)
+            ORDER BY first_seen_at
+            LIMIT :batch
+            """, nativeQuery = true)
+    List<Long> findIdsMissingExplanation(@Param("since") Instant since, @Param("batch") int batch);
 }
