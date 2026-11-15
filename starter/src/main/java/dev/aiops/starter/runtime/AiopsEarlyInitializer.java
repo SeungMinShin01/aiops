@@ -1,6 +1,7 @@
 package dev.aiops.starter.runtime;
 
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
+import org.springframework.boot.context.event.ApplicationFailedEvent;
 import org.springframework.boot.context.event.ApplicationPreparedEvent;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.context.logging.LoggingApplicationListener;
@@ -24,11 +25,11 @@ public class AiopsEarlyInitializer implements ApplicationListener<ApplicationEve
     public void onApplicationEvent(ApplicationEvent event) {
         try {
             if (AiopsRuntime.isDisabled()) {
-                return;                           // 한 번 꺼지면 이후 이벤트는 바로 리턴
+                return; // 한 번 꺼지면 이후 이벤트는 바로 리턴
             }
             handle(event);
         } catch (Throwable t) {
-            AiopsRuntime.disable(t);             // Exception이 아니라 Throwable (D-087)
+            AiopsRuntime.disable(t); // Exception이 아니라 Throwable (D-087)
         }
     }
 
@@ -39,8 +40,10 @@ public class AiopsEarlyInitializer implements ApplicationListener<ApplicationEve
             }
         } else if (event instanceof ApplicationPreparedEvent || event instanceof ApplicationReadyEvent) {
             AiopsRuntime.attachAppenderIfMissing();
+        } else if (event instanceof ApplicationFailedEvent failed) {
+            AiopsRuntime.reportStartupFailure(failed.getException()); // 시작 실패 (AI-45)
         }
-        // 그 밖의 이벤트는 무시. 5단계에서 ApplicationFailedEvent(시작 실패)가 여기 들어온다
+        // 그 밖의 이벤트는 무시
     }
 
     @Override
