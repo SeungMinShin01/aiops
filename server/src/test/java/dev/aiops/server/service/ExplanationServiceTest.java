@@ -150,11 +150,11 @@ class ExplanationServiceTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 상한에_걸리면_부르지_않는다() {
+    void quotaExceededSkipsLlm() {
         Long tenantId = newTenant();
         Long groupId = newGroup(tenantId);
         CountingLlm llm = new CountingLlm(Optional.of("설명"));
-        LlmQuota closed = new LlmQuota() {
+        LlmQuota closed = new LlmQuota(null, 0) {
             @Override
             public boolean tryAcquire(Long tenantId) {
                 return false;
