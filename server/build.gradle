@@ -1,5 +1,6 @@
 apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
+apply from: rootProject.file('gradle/dotenv.gradle')   // bootRun 때 infra/local/.env 읽기
 
 dependencies {
     implementation project(':protocol')

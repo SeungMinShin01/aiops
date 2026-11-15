@@ -79,7 +79,7 @@
 
 - 이름 목록은 `infra/local/.env.example`, `infra/prod/.env.example`에 있다. 복사해서 `.env`를 만들고 값을 넣는다. **`.env`는 `.gitignore`에 있어 커밋되지 않는다. 커밋하는 건 `.env.example`뿐.**
 - 서버는 `application.yml`의 `aiops.discord.*`로 읽는다. 값이 비어 있으면 디스코드 연동만 건너뛰고 서버는 뜬다.
-- 로컬에서 서버를 띄울 때는 IDE 실행 설정(Environment variables)이나 셸에 위 변수를 넣는다. Spring은 `.env` 파일을 자동으로 읽지 않는다.
+- 로컬에서는 `infra/local/.env`에 넣고 `./gradlew :server:bootRun`으로 띄운다. Gradle이 `.env`를 읽어 환경변수로 넣는다(`gradle/dotenv.gradle`). Spring 자체는 `.env`를 읽지 않으므로, IDE 실행 버튼으로 띄울 때는 IDE 실행 설정(Environment variables)에 직접 넣어야 한다. 테스트는 `.env`를 읽지 않는다.
 
 ## 8. 확인
 

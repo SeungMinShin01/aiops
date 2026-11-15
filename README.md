@@ -31,14 +31,17 @@ docker compose -f infra/local/docker-compose.yml up -d   # 로컬 DB (1단계 �
 ### 로컬에서 끝까지 돌려보기 (마일스톤 1)
 
 ```powershell
+cp infra/local/.env.example infra/local/.env                           # 0) 처음 한 번. 필요한 값만 채운다
 docker compose -f infra/local/docker-compose.yml up -d                 # 1) DB
 ./gradlew :server:bootRun --args='--spring.profiles.active=local'      # 2) 서버 (새 터미널)
-$env:AIOPS_KEY="aiops_l_local-dev-key-0001"; ./gradlew :sample-app:bootRun   # 3) 샘플 앱 (새 터미널)
+./gradlew :sample-app:bootRun                                          # 3) 샘플 앱 (새 터미널)
 curl.exe -s http://localhost:8081/boom/npe                              # 4) 에러 내기
 docker exec -it aiops-postgres psql -U postgres -d aiops -P pager=off -c "select id, payload->>'exceptionType', left(payload->>'message', 60) from error_event order by id desc limit 5;"   # 5) 확인
 ```
 
-- 키(`AIOPS_KEY`)는 **샘플 앱을 띄우는 같은 터미널**에서 넣는다. 다른 창에서 넣으면 `[aiops] aiops.api-key 없음, 비활성`이 뜨고 아무것도 안 보낸다.
+- 환경변수는 `infra/local/.env`에 넣는다. `./gradlew bootRun`이 자동으로 읽는다(`gradle/dotenv.gradle`). 어떤 값이 있는지는 `infra/local/.env.example`에 있다. `.env`는 커밋하지 않는다.
+- `[aiops] aiops.api-key 없음, 비활성`이 뜨면 `.env`에 `AIOPS_KEY`가 있는지 확인한다. IDE 실행 버튼으로 띄우면 `.env`를 읽지 않으니 Gradle로 실행한다.
+- 터미널에서 직접 넣은 환경변수가 있으면 그 값이 `.env`보다 우선한다. 테스트는 `.env`를 읽지 않는다.
 - 시드 키는 로컬 전용이다. 서버는 `local` 프로필이어야 시드 키가 들어간다.
 - PowerShell의 `curl`은 Invoke-WebRequest라서 `curl.exe`를 쓴다.
 
