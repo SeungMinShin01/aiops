@@ -1,0 +1,49 @@
+### 콘솔 에러 화면 API 수동 요청 모음 (AI-95 에러 그룹 목록)
+### 준비: 팀 멤버 계정으로 로그인(/oauth2/authorization/github)한 뒤 개발자 도구에서 쿠키를 복사해 아래 변수에 넣는다
+###   AIOPS_SESSION → @session   (값은 커밋하지 않는다). 환경은 dev 선택
+### @teamId 는 내가 속한 팀 번호. 다른 팀 번호를 넣으면 403 (MembershipGuard)
+### from/to 는 날짜만 주면 한국 시간 하루 (to 는 그날 23:59:59 까지). 시각까지 줄 때는 2026-11-01T00:00:00Z 처럼 Z 로 (+ 는 %2B)
+
+@session = 여기에-AIOPS_SESSION-값
+@teamId = 1
+
+### ---- AI-95 목록 ----
+
+### 1. 조건 없이 (최근 발생순, 한 쪽 20개) -> 200 { content: [...], totalElements, totalPages, number, size }
+GET {{host}}/api/teams/{{teamId}}/errors
+Cookie: AIOPS_SESSION={{session}}
+
+### 2. env 만 -> 200
+GET {{host}}/api/teams/{{teamId}}/errors?env=local
+Cookie: AIOPS_SESSION={{session}}
+
+### 3. env + 상태 -> 200
+GET {{host}}/api/teams/{{teamId}}/errors?env=local&status=OPEN
+Cookie: AIOPS_SESSION={{session}}
+
+### 4. 기간 (날짜만) -> 200
+GET {{host}}/api/teams/{{teamId}}/errors?from=2026-11-01&to=2026-11-07
+Cookie: AIOPS_SESSION={{session}}
+
+### 5. env + 상태 + 기간 + 정렬 + 페이지 전부 -> 200
+GET {{host}}/api/teams/{{teamId}}/errors?env=local&status=OPEN&from=2026-11-01&to=2026-11-07&sort=lastSeen,desc&page=0&size=20
+Cookie: AIOPS_SESSION={{session}}
+
+### 6. 횟수 많은 순 -> 200
+GET {{host}}/api/teams/{{teamId}}/errors?sort=count,desc
+Cookie: AIOPS_SESSION={{session}}
+
+### 7. 정렬 허용값 밖 -> 400 { error: "invalid_request", message: ... }
+GET {{host}}/api/teams/{{teamId}}/errors?sort=exceptionType,asc
+Cookie: AIOPS_SESSION={{session}}
+
+### 8. 페이지 크기 상한(100) 초과 -> 400
+GET {{host}}/api/teams/{{teamId}}/errors?size=101
+Cookie: AIOPS_SESSION={{session}}
+
+### 9. env 허용값 밖 -> 400
+GET {{host}}/api/teams/{{teamId}}/errors?env=dev
+Cookie: AIOPS_SESSION={{session}}
+
+### 10. 세션 없이 -> 401
+GET {{host}}/api/teams/{{teamId}}/errors
