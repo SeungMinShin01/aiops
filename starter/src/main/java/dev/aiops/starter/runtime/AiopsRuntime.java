@@ -13,6 +13,9 @@ import dev.aiops.starter.transport.EventBuffer;
 import dev.aiops.starter.transport.EventSender;
 import dev.aiops.starter.transport.HttpTransport;
 import dev.aiops.starter.transport.Transport;
+import dev.aiops.protocol.ErrorEvent;
+import dev.aiops.protocol.Phase;
+import java.time.Duration;
 import org.springframework.core.env.Environment;
 
 import java.time.Clock;
@@ -28,6 +31,9 @@ public final class AiopsRuntime {
     private static final Object LOCK = new Object();
     private static volatile AiopsRuntime instance; // 다른 스레드(어펜더)도 바로 보이게 volatile
     private static final AtomicBoolean DISABLED = new AtomicBoolean();
+
+    /** 시작 실패를 보낼 때 기다리는 최대 시간. 앱 종료를 우리 때문에 늦추지 않는다 (늘리지 않는다) */
+    static final Duration STARTUP_FAILURE_WAIT = Duration.ofSeconds(3);
 
     private final AiopsSettings settings;
     private final EventBuffer buffer;
@@ -88,6 +94,33 @@ public final class AiopsRuntime {
         }
         synchronized (LOCK) {
             LogbackAttacher.attachIfMissing(r.mapper, r.masker, r.buffer);
+        }
+    }
+
+    /**
+     * 앱이 뜨다가 실패했을 때 그 예외를 STARTUP 이벤트로 바로 보낸다 (AI-45).
+     * 로그가 아니라 Spring이 넘겨준 예외를 직접 쓴다 (실패 로그는 이 뒤에 찍힌다).
+     * 최대 3초만 기다리고, 실패하면 포기한다. 여기서 난 오류는 조용히 버린다 —
+     * 원래 시작 실패를 가리면 안 되므로 비활성 로그도 찍지 않는다.
+     */
+    public static void reportStartupFailure(Throwable failure) {
+        try {
+            AiopsRuntime r = instance;
+            if (r == null || DISABLED.get() || failure == null) {
+                return; // 키 없음·꺼짐·시작 전
+            }
+            ErrorEvent event = r.mapper.mapThrowable(failure, Phase.STARTUP);
+            if (event == null) {
+                return;
+            }
+            ErrorEvent masked = r.masker.mask(event); // DB 주소에 비밀번호가 들어 있을 수 있다
+            if (masked == null) {
+                return;
+            }
+            r.buffer.offer(masked);
+            r.sender.flushNow(STARTUP_FAILURE_WAIT);
+        } catch (Throwable ignored) {
+            // Exception이 아니라 Throwable (D-087). 조용히 버린다
         }
     }
 
