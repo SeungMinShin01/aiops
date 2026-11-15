@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Starter 전용 데몬 스레드(aiops-sender)가 버퍼를 비워 묶음으로 보낸다 (부품 ⑦).
@@ -46,6 +48,12 @@ public final class BatchingEventSender implements EventSender {
     private final AtomicInteger carriedDropped = new AtomicInteger(); // 보내지 못하고 버린 개수 (다음 묶음에 실음)
     private final AtomicBoolean errorLogged = new AtomicBoolean();
     private final Object sendLock = new Object(); // 전송 스레드와 flushNow가 동시에 보내지 않게
+
+    /** flushNow가 전송 스레드에 남기는 요청. done = 끝났다는 신호, deadlineNanos = 이 시각이 지나면 그만 */
+    private record FlushRequest(CountDownLatch done, long deadlineNanos) {
+    }
+
+    private final AtomicReference<FlushRequest> flushRequest = new AtomicReference<>();
 
     private volatile boolean running;
     private Thread thread;
@@ -97,19 +105,41 @@ public final class BatchingEventSender implements EventSender {
     }
 
     /**
-     * 부른 스레드(종료 훅·시작 실패)에서 직접 비운다. 전송 스레드를 기다리지 않는다.
-     * 재시도는 하지 않는다 (시간 제한이 있으므로). maxWait는 묶음 사이에서 확인한다.
+     * 버퍼를 지금 비운다. 부른 쪽은 최대 maxWait까지만 기다린다 (AI-45).
+     * - 전송 스레드가 돌고 있으면: 요청만 남기고 기다린다. 전송이 느려도 부른 쪽은 maxWait에 돌아온다
+     * - 전송 스레드가 없으면(시작 전·정지 후): 부른 스레드가 직접 보낸다
+     * 재시도는 하지 않는다 (시간 제한이 있으므로).
      */
     @Override
     public void flushNow(Duration maxWait) {
         try {
             long deadline = System.nanoTime() + maxWait.toNanos();
-            do {
-                sendBatch(false);
-            } while (buffer.size() > 0 && System.nanoTime() < deadline);
+            Thread senderThread;
+            synchronized (this) {
+                senderThread = thread;
+            }
+            if (senderThread == null || !senderThread.isAlive() || senderThread == Thread.currentThread()) {
+                drainUntil(deadline);
+                return;
+            }
+            FlushRequest request = new FlushRequest(new CountDownLatch(1), deadline);
+            flushRequest.set(request);
+            boolean finished = request.done().await(maxWait.toNanos(), TimeUnit.NANOSECONDS);
+            if (!finished) {
+                flushRequest.compareAndSet(request, null); // 시간 초과: 아직 안 집어 갔으면 요청을 거둔다
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } catch (Throwable t) {
             logOnce(t);
         }
+    }
+
+    /** 버퍼가 빌 때까지 묶음을 보낸다. 최소 1번, 마감 시각은 묶음 사이에서 확인 */
+    private void drainUntil(long deadlineNanos) {
+        do {
+            sendBatch(false);
+        } while (buffer.size() > 0 && System.nanoTime() < deadlineNanos);
     }
 
     @Override
@@ -151,6 +181,16 @@ public final class BatchingEventSender implements EventSender {
     /** 루프 한 바퀴. hello → 이벤트 → 하트비트 순서. 테스트에서는 가짜 시계와 함께 직접 부른다 */
     void tick() {
         long now = clock.millis();
+
+        FlushRequest request = flushRequest.getAndSet(null);
+        if (request != null) {
+            try {
+                drainUntil(request.deadlineNanos()); // 종료 훅·시작 실패가 기다리는 중
+                lastFlushAt = now;
+            } finally {
+                request.done().countDown(); // 실패해도 기다리는 쪽은 풀어 준다
+            }
+        }
 
         HelloRequest hello = pendingHello.getAndSet(null);
         if (hello != null) {
