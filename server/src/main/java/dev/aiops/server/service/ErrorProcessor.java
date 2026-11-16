@@ -23,6 +23,10 @@ public class ErrorProcessor {
         }
 
         @Override
+        public void notifyReopenedGroup(Long tenantId, Long groupId) {
+        }
+
+        @Override
         public void notifyText(Long tenantId, String env, String text) {
         }
     };
@@ -53,13 +57,14 @@ public class ErrorProcessor {
         try {
             log.info("처리 요청 받음 tenantId={} count={}", tenantId, eventIds.size());
 
-            // AI-52 : 새로 만들어진 그룹 id 를 모음
+            // AI-52 : 새로 만들어진 그룹 id 를 모음. AI-97 : 해결로 표시했다가 다시 열린 그룹 id 도 따로 모음
             List<Long> newGroupIds = new ArrayList<>();
+            List<Long> reopenedGroupIds = new ArrayList<>();
             for (Long eventId : eventIds) {
                 try {
-                    Long newGroupId = groupingService.groupOne(tenantId, eventId);
-                    if (newGroupId != null) {
-                        newGroupIds.add(newGroupId);
+                    GroupingService.Outcome outcome = groupingService.groupOne(tenantId, eventId);
+                    if (outcome != null) {
+                        (outcome.reopened() ? reopenedGroupIds : newGroupIds).add(outcome.groupId());
                     }
                 } catch (RuntimeException e) {
                     // 이 이벤트만 실패: processed=false 로 남아 재처리(AI-53)되고, 나머지는 계속 처리
@@ -82,7 +87,17 @@ public class ErrorProcessor {
                 }
             }
 
-            log.info("새 그룹 {}개 tenantId={}", newGroupIds.size(), tenantId);
+            // AI-97 : 다시 열린 그룹은 설명이 이미 있으므로 설명 없이 알림만 ("재발" 제목). 보내는 길은 새 그룹과 같다.
+            //         설명이 없던 그룹이면 ExplanationRetryScheduler(AI-57)가 따로 채운다
+            for (Long groupId : reopenedGroupIds) {
+                try {
+                    notifier.notifyReopenedGroup(tenantId, groupId);
+                } catch (RuntimeException e) {
+                    log.warn("재발 알림 실패 tenantId={} groupId={}", tenantId, groupId);
+                }
+            }
+
+            log.info("새 그룹 {}개 다시 열린 그룹 {}개 tenantId={}", newGroupIds.size(), reopenedGroupIds.size(), tenantId);
         } catch (RuntimeException e) {
             // @Async 메서드의 예외는 조용히 사라지므로 직접 잡아서 로그
             log.error("처리 실패 tenantId={} eventIds={}", tenantId, eventIds, e);

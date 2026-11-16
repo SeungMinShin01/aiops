@@ -44,6 +44,20 @@ public final class ApiSession {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))));
     }
 
+    // AI-97 : 본문 있는 PUT (평가 남기기 등)
+    public HttpResponse<String> put(String path, String jsonBody) {
+        return send(withCsrf(HttpRequest.newBuilder(URI.create(base + path))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody))));
+    }
+
+    // AI-97 : 본문 있는 PATCH (상태 바꾸기). HttpRequest.Builder 에는 patch() 가 없어서 method() 로 보낸다
+    public HttpResponse<String> patch(String path, String jsonBody) {
+        return send(withCsrf(HttpRequest.newBuilder(URI.create(base + path))
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(jsonBody))));
+    }
+
     public HttpResponse<String> delete(String path) {
         return send(withCsrf(HttpRequest.newBuilder(URI.create(base + path)).DELETE()));
     }
