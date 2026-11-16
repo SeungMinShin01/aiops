@@ -24,12 +24,18 @@ public interface ErrorGroupRepository extends JpaRepository<ErrorGroupEntity, Lo
     int updateExplanationIfNull(@Param("id") Long id, @Param("tenantId") Long tenantId,
                                 @Param("explanation") String explanation,
                                 @Param("explainedAt") Instant explainedAt);
-        // AI-57 : 설명이 아직 없는 최근 그룹 id (오래된 순). 팀은 RLS가 거른다
+
+    // AI-57 : 설명이 아직 없는 그룹 id (오래된 순). 팀은 RLS가 거른다
+    // since 보다 뒤에 생긴 것만 (너무 오래된 그룹은 포기), before 보다 앞에 생긴 것만
+    // (방금 생긴 그룹은 처리 스레드가 설명을 요청하는 중일 수 있다 → 같이 부르면 LLM 을 두 번 쓴다)
     @Query(value = """
             SELECT id FROM error_group
-            WHERE ai_explanation IS NULL AND first_seen_at > CAST(:since AS timestamptz)
+            WHERE ai_explanation IS NULL
+              AND first_seen_at > CAST(:since AS timestamptz)
+              AND first_seen_at < CAST(:before AS timestamptz)
             ORDER BY first_seen_at
             LIMIT :batch
             """, nativeQuery = true)
-    List<Long> findIdsMissingExplanation(@Param("since") Instant since, @Param("batch") int batch);
+    List<Long> findIdsMissingExplanation(@Param("since") Instant since, @Param("before") Instant before,
+                                         @Param("batch") int batch);
 }
