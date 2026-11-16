@@ -8,6 +8,7 @@ import { request } from "./client";
  * @property {number} teamId
  * @property {string} name
  * @property {'OWNER'|'MEMBER'} role
+ * @property {'NONE'|'READY'|'FAILED'|'SUSPENDED'} discordStatus  팀 디스코드 채널 준비 상태 (D-110)
  *
  * @typedef {object} Me
  * @property {number} userId
@@ -15,6 +16,7 @@ import { request } from "./client";
  * @property {string|null} name
  * @property {boolean} isAdmin
  * @property {TeamItem[]} teams
+ * @property {boolean} discordConnected  내가 디스코드를 연결했는지. [디스코드 연결] 버튼을 이 값으로 정한다 (D-110)
  */
 
 /** @returns {Promise<Me>} */

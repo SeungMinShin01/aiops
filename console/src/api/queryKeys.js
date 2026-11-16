@@ -3,4 +3,8 @@
 export const queryKeys = {
   me: ["me"],
   team: (teamId) => ["teams", teamId],
+  connection: (teamId) => ["teams", teamId, "connection"],
+  keys: (teamId) => ["teams", teamId, "keys"],
+  invites: (teamId) => ["teams", teamId, "invites"],
+  members: (teamId) => ["teams", teamId, "members"],
 };

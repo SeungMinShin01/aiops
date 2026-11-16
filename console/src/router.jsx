@@ -4,7 +4,9 @@ import { PlainLayout } from "./components/PlainLayout";
 import { RequireLogin } from "./components/RequireLogin";
 import { TeamLayout } from "./components/TeamLayout";
 import { Forbidden } from "./pages/Forbidden";
+import { Invite } from "./pages/Invite";
 import { Login } from "./pages/Login";
+import { TeamSettings } from "./pages/TeamSettings";
 import { Teams } from "./pages/Teams";
 
 export const router = createBrowserRouter([
@@ -25,14 +27,14 @@ export const router = createBrowserRouter([
             path: "errors/:groupId",
             element: <ComingSoon title="에러 상세" />,
           },
-          { path: "settings", element: <ComingSoon title="설정" /> },
+          { path: "settings", element: <TeamSettings /> },
         ],
       },
       {
         element: <PlainLayout />,
         children: [
           { path: "/admin", element: <ComingSoon title="관리자" /> },
-          { path: "/invite/:token", element: <ComingSoon title="초대 수락" /> },
+          { path: "/invite/:token", element: <Invite /> },
         ],
       },
     ],
