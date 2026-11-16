@@ -25,6 +25,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <li>ReprocessScheduler와 따로 둔 이유: 그쪽은 짧게 끝나야 하는데 LLM 호출은 건당 최대 20초다</li>
  * <li>LLM 키가 없으면 아무것도 하지 않는다 (가짜 응답으로 그룹을 채우지 않는다)</li>
  * <li>retry-window(기본 24시간)보다 오래된 그룹은 포기한다 (콘솔에는 설명 없음으로 보인다)</li>
+ * <li>retry-min-age(기본 2분)보다 새 그룹은 건드리지 않는다. 처리 스레드(ErrorProcessor)가 방금 설명을
+ * 요청하는 중일 수 있어서, 같이 부르면 LLM을 두 번 쓰고 일일 상한도 두 번 깎인다</li>
  * <li>상한에 걸리면 첫 거절에서 멈춘다 (나머지를 헛돌지 않게)</li>
  * <li>RLS를 우회하지 않는다. 팀 목록을 돌며 팀마다 set → 조회·설명 → clear (D-082)</li>
  * </ul>
@@ -40,6 +42,7 @@ public class ExplanationRetryScheduler {
     private final TransactionTemplate readTx; // 조회를 트랜잭션 안에서 → 바인더가 app.tenant_id 를 넣는다
     private final LlmProperties properties;
     private final Duration window;
+    private final Duration minAge;
     private final int batch;
 
     public ExplanationRetryScheduler(ErrorGroupRepository groups,
@@ -48,6 +51,7 @@ public class ExplanationRetryScheduler {
             PlatformTransactionManager transactionManager,
             LlmProperties properties,
             @Value("${aiops.llm.retry-window:PT24H}") String window,
+            @Value("${aiops.llm.retry-min-age:PT2M}") String minAge,
             @Value("${aiops.llm.retry-batch:50}") int batch) {
         this.groups = groups;
         this.tenants = tenants;
@@ -56,6 +60,7 @@ public class ExplanationRetryScheduler {
         this.readTx.setReadOnly(true);
         this.properties = properties;
         this.window = Duration.parse(window);
+        this.minAge = Duration.parse(minAge);
         this.batch = batch;
     }
 
@@ -65,7 +70,9 @@ public class ExplanationRetryScheduler {
             return; // 키 없음: 재시도할 이유가 없다
         }
         try {
-            Instant since = Instant.now().minus(window);
+            Instant now = Instant.now();
+            Instant since = now.minus(window);   // 이보다 오래된 그룹은 포기
+            Instant before = now.minus(minAge);  // 이보다 새 그룹은 처리 스레드 몫
             int remaining = batch;
             int saved = 0;
 
@@ -80,7 +87,8 @@ public class ExplanationRetryScheduler {
                 int limit = remaining;
                 TenantContext.set(tenantId);
                 try {
-                    List<Long> groupIds = readTx.execute(status -> groups.findIdsMissingExplanation(since, limit));
+                    List<Long> groupIds = readTx.execute(
+                            status -> groups.findIdsMissingExplanation(since, before, limit));
                     if (groupIds == null) {
                         continue;
                     }
