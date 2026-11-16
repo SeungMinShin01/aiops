@@ -7,6 +7,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
 
 // AI-95 : 목록 조회 조건. 요청 문자열을 여기서 허용값만 통과시킨다 (그 밖은 InvalidRequestException → 400)
 // null 은 "그 조건 없음". sort 는 검사를 마친 "필드,방향" (예: "lastSeen,desc")
@@ -24,6 +25,17 @@ public record ErrorGroupFilter(String env, GroupStatus status, Instant from, Ins
         public InvalidRequestException(String message) {
             super(message);
         }
+    }
+
+    // AI-107 : 페이지 번호·크기 검사. 팀용 목록과 관리자용 목록이 같은 규칙을 쓰도록 한 곳에 둔다
+    public static PageRequest pageRequest(int page, int size) {
+        if (page < 0) {
+            throw new InvalidRequestException("page 는 0 이상");
+        }
+        if (size < 1 || size > MAX_SIZE) {
+            throw new InvalidRequestException("size 는 1 이상 " + MAX_SIZE + " 이하");
+        }
+        return PageRequest.of(page, size);
     }
 
     public static ErrorGroupFilter fromRequest(String env, String status, String from, String to, String sort) {
