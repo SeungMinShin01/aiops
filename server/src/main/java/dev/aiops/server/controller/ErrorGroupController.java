@@ -51,14 +51,9 @@ public class ErrorGroupController {
                                         @RequestParam(required = false) String sort,
                                         @RequestParam(defaultValue = "0") int page,
                                         @RequestParam(defaultValue = "20") int size) {
-        if (page < 0) {
-            throw new ErrorGroupFilter.InvalidRequestException("page 는 0 이상");
-        }
-        if (size < 1 || size > ErrorGroupFilter.MAX_SIZE) {
-            throw new ErrorGroupFilter.InvalidRequestException("size 는 1 이상 " + ErrorGroupFilter.MAX_SIZE + " 이하");
-        }
+        PageRequest pageRequest = ErrorGroupFilter.pageRequest(page, size);   // AI-107 : 검사를 관리자용과 같이 쓰려고 옮김
         ErrorGroupFilter filter = ErrorGroupFilter.fromRequest(env, status, from, to, sort);
-        return queryService.list(filter, PageRequest.of(page, size));
+        return queryService.list(filter, pageRequest);
     }
 
     // AI-96 : GET /api/teams/{teamId}/errors/{groupId}. 없거나 다른 팀 그룹이면 404 (403 이 아니다 — 존재 여부를 드러내지 않는다)
