@@ -98,7 +98,7 @@ a:hover { color: var(--accent-ink); }
 }
 .team-heading strong { font-size: 16px; }
 .team-heading span { font-size: 13px; color: var(--muted); }
-.content { width: 100%; max-width: 1160px; padding: 20px 16px 48px; }
+.content { width: 100%; max-width: 1440px; padding: 20px 16px 48px; }
 
 /* 로그인·안내 화면 */
 .login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -109,6 +109,57 @@ a:hover { color: var(--accent-ink); }
 }
 .login-logo { margin: 0; font-size: 24px; letter-spacing: -0.4px; }
 .login-error { margin: 0; padding: 10px 12px; border-radius: var(--radius); background: #fbe9d9; color: #8a3d0c; }
+
+/* 에러 목록 */
+.stack { display: flex; flex-direction: column; gap: 20px; }
+.page-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.page-head .page-title { margin: 0; }
+
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.segmented { display: flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.segmented button { min-height: 44px; padding: 0 16px; border: 0; border-left: 1px solid var(--line-strong); background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+.segmented button:first-child { border-left: 0; }
+.segmented button.active { background: var(--accent); color: #ffffff; font-weight: 500; }
+.field { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.field select { min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--card); color: var(--ink); font: inherit; }
+
+.table-card { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.data-table { width: 100%; min-width: 720px; border-collapse: collapse; }
+.data-table th { padding: 12px; text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--line); }
+.data-table td { padding: 14px 12px; border-bottom: 1px solid #eceef1; vertical-align: top; }
+.data-table tr:last-child td { border-bottom: 0; }
+.data-table th:first-child, .data-table td:first-child { padding-left: 20px; }
+.data-table th:last-child, .data-table td:last-child { padding-right: 20px; }
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table .strong { font-weight: 700; }
+/* 에러 목록 표: 뒤쪽 네 칸은 너비를 정하고, 남는 폭은 "에러" 칸이 가져간다 */
+.error-table th:nth-child(2) { width: 96px; }
+.error-table th:nth-child(3) { width: 88px; }
+.error-table th:nth-child(4) { width: 176px; }
+.error-table th:nth-child(5) { width: 112px; }
+.muted-cell { color: var(--muted); }
+.row-title { font-weight: 700; text-decoration: none; }
+.row-sub { display: block; font-size: 12px; color: var(--muted); }
+
+.tag { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--side); font-size: 12px; }
+.tag.dark { background: var(--dark); color: #ffffff; }
+.pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.pill.open { background: #fbe9d9; color: #8a3d0c; }
+.pill.resolved { background: #e3f1e7; color: #17603a; }
+.pill.ignored { background: var(--side); color: var(--muted); }
+
+.card-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.error-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); text-decoration: none; }
+.error-card:hover { color: var(--ink); border-color: var(--line-strong); }
+.error-card .row-title { color: var(--accent); }
+.card-top { display: flex; align-items: center; gap: 8px; }
+.card-when { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+.pager { display: flex; align-items: center; justify-content: space-between; color: var(--muted); }
+.pager-buttons { display: flex; gap: 8px; }
+.button:disabled { background: var(--bg); color: #6b7280; border-color: var(--line); cursor: default; }
+
+.wide-only { display: none; }
 
 /* 넓은 화면: 목록이 왼쪽에 서고, 접으면 네모만 남는다 */
 @media (min-width: 721px) {
@@ -122,4 +173,7 @@ a:hover { color: var(--accent-ink); }
   .sidebar.collapsed .sidebar-chevron { transform: rotate(180deg); }
   .team-heading { padding: 0 24px; }
   .content { padding: 28px 24px 48px; }
+  .wide-only { display: block; }
+  .narrow-only { display: none; }
+  .field-end { margin-left: auto; }
 }
