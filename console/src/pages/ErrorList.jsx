@@ -266,7 +266,7 @@ export function ErrorList() {
 
 function EnvTag({ env }) {
   return (
-    <span className={env === "prod" ? "tag dark" : "tag"}>
+    <span className={env === "prod" ? "env-tag dark" : "env-tag"}>
       {ENV_LABEL[env] ?? env}
     </span>
   );

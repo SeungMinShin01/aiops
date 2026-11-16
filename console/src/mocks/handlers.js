@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import { errorGroups } from "./errorData";
+import { errorDetail, errorGroups } from "./errorData";
 
 // 가짜 응답 (dev:mock 전용). 팀 1은 조장(OWNER), 팀 2·3은 팀원(MEMBER) 세트.
 // 팀원이 조장 전용 API를 부르면 서버처럼 403을 돌려준다 (화면이 "권한 없음"을 그리는지 보려고)
@@ -149,6 +149,16 @@ function listErrors(request) {
   });
 }
 
+
+// GET /api/teams/:teamId/errors/:groupId 흉내. 없으면 서버처럼 404
+function oneError(groupId) {
+  const detail = errorDetail(Number(groupId));
+  if (!detail) {
+    return HttpResponse.json({ error: "group_not_found" }, { status: 404 });
+  }
+  return HttpResponse.json(detail);
+}
+
 export const handlers = [
   http.get("/api/me", () =>
     HttpResponse.json({
@@ -284,4 +294,7 @@ export const handlers = [
 
   // 에러 목록 (AI-95)
   http.get("/api/teams/:teamId/errors", ({ request }) => listErrors(request)),
+  
+  // 에러 상세 (AI-96)
+  http.get("/api/teams/:teamId/errors/:groupId", ({ params }) => oneError(params.groupId)),
 ];
