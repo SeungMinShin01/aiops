@@ -1,0 +1,125 @@
+/* 시안(AIOps 콘솔 화면 시안)의 색·간격. 모바일 우선 */
+:root {
+  --bg: #f3f4f6;
+  --card: #ffffff;
+  --ink: #16191d;
+  --muted: #4a5160;
+  --line: #dde0e5;
+  --line-strong: #c9cdd4;
+  --side: #e9ebef;
+  --accent: #1f4fd1;
+  --accent-ink: #163a9c;
+  --dark: #16191d;
+  --dark-muted: #c9cdd4;
+  --radius: 8px;
+  font-family: 'Noto Sans KR', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+a { color: var(--accent); }
+a:hover { color: var(--accent-ink); }
+
+.muted { margin: 0; color: var(--muted); }
+.page-title { margin: 0 0 8px; font-size: 24px; letter-spacing: -0.4px; }
+.page-message { padding: 48px 24px; text-align: center; color: var(--muted); }
+.plain-list { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.plain-list .button { width: 100%; }
+
+.button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 16px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--card); color: var(--ink);
+  font: inherit; font-weight: 500; text-decoration: none; cursor: pointer;
+}
+.button:hover { color: var(--ink); border-color: var(--muted); }
+.button.primary { border-color: var(--accent); background: var(--accent); color: #ffffff; font-weight: 700; }
+.button.primary:hover { color: #ffffff; background: var(--accent-ink); }
+.icon-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border: 0; border-radius: var(--radius);
+  background: transparent; color: inherit; cursor: pointer;
+}
+
+/* 위쪽 메뉴 */
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px;
+  min-height: 56px; padding: 0 12px;
+  background: var(--dark); color: #ffffff;
+}
+.topbar-logo { padding: 0 8px; font-size: 17px; font-weight: 700; color: #ffffff; text-decoration: none; }
+.topbar-logo:hover { color: #ffffff; }
+.topbar-nav { display: flex; flex: 1 1 auto; gap: 4px; }
+.topbar-nav a {
+  display: flex; align-items: center; min-height: 44px; padding: 0 12px;
+  color: var(--dark-muted); text-decoration: none;
+}
+.topbar-nav a:hover { color: #ffffff; }
+.topbar-nav a.active { color: #ffffff; font-weight: 700; box-shadow: inset 0 -2px 0 #ffffff; }
+.topbar-user { color: var(--dark-muted); }
+.topbar-logout {
+  min-height: 44px; padding: 0 8px; border: 0; background: transparent;
+  color: var(--dark-muted); font: inherit; text-decoration: underline; cursor: pointer;
+}
+
+/* 왼쪽 팀 목록 + 내용 */
+.shell-body { flex: 1 1 auto; display: flex; flex-direction: column; }
+.shell-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.sidebar { padding: 8px 10px 12px; background: var(--side); border-bottom: 1px solid #d3d7de; color: var(--muted); }
+.sidebar.collapsed { display: none; }            /* 좁은 화면: 접으면 사라지고 위쪽 메뉴 버튼으로 연다 */
+.sidebar-head { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.sidebar-title { padding-left: 8px; font-size: 12px; }
+.team-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.team-link {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 6px;
+  border: 1px solid transparent; border-radius: var(--radius);
+  color: var(--ink); text-decoration: none;
+}
+.team-link:hover { color: var(--ink); background: #dfe2e8; }
+.team-link.active { background: var(--card); border-color: var(--line-strong); }
+.team-badge {
+  flex: 0 0 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius); background: var(--card); font-size: 13px; font-weight: 700;
+}
+.team-link.active .team-badge { background: var(--accent); color: #ffffff; }
+.team-text { min-width: 0; display: flex; flex-direction: column; }
+.team-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-link.active .team-name { font-weight: 700; }
+.team-role { font-size: 12px; color: var(--muted); }
+
+.team-heading {
+  display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 0 16px;
+  background: var(--card); border-bottom: 1px solid var(--line);
+}
+.team-heading strong { font-size: 16px; }
+.team-heading span { font-size: 13px; color: var(--muted); }
+.content { width: 100%; max-width: 1160px; padding: 20px 16px 48px; }
+
+/* 로그인·안내 화면 */
+.login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login-card {
+  width: 100%; max-width: 360px; padding: 28px 24px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.login-logo { margin: 0; font-size: 24px; letter-spacing: -0.4px; }
+.login-error { margin: 0; padding: 10px 12px; border-radius: var(--radius); background: #fbe9d9; color: #8a3d0c; }
+
+/* 넓은 화면: 목록이 왼쪽에 서고, 접으면 네모만 남는다 */
+@media (min-width: 721px) {
+  .topbar-menu { display: none; }
+  .topbar { padding: 0 20px; }
+  .shell-body { flex-direction: row; }
+  .sidebar { flex: 0 0 248px; border-bottom: 0; border-right: 1px solid #d3d7de; }
+  .sidebar.collapsed { display: block; flex-basis: 68px; }
+  .sidebar.collapsed .sidebar-title,
+  .sidebar.collapsed .team-text { display: none; }
+  .sidebar.collapsed .sidebar-chevron { transform: rotate(180deg); }
+  .team-heading { padding: 0 24px; }
+  .content { padding: 28px 24px 48px; }
+}
