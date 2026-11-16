@@ -3,6 +3,7 @@ import { ComingSoon } from "./components/ComingSoon";
 import { PlainLayout } from "./components/PlainLayout";
 import { RequireLogin } from "./components/RequireLogin";
 import { TeamLayout } from "./components/TeamLayout";
+import { ErrorList } from "./pages/ErrorList";
 import { Forbidden } from "./pages/Forbidden";
 import { Login } from "./pages/Login";
 import { Teams } from "./pages/Teams";
@@ -20,7 +21,7 @@ export const router = createBrowserRouter([
         element: <TeamLayout />,
         children: [
           { index: true, element: <Navigate to="errors" replace /> },
-          { path: "errors", element: <ComingSoon title="에러" /> },
+          { path: "errors", element: <ErrorList /> },
           {
             path: "errors/:groupId",
             element: <ComingSoon title="에러 상세" />,
