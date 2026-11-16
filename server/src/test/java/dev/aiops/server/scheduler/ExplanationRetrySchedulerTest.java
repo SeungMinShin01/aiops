@@ -61,9 +61,15 @@ class ExplanationRetrySchedulerTest extends PostgresContainerSupport {
         llmCalls.set(0);
     }
 
+    // 기존 테스트용: 최소 나이 0초 (방금 만든 그룹도 바로 대상)
     private ExplanationRetryScheduler scheduler(LlmProperties properties, LlmQuota quotaToUse) {
+        return scheduler(properties, quotaToUse, "PT0S");
+    }
+
+    private ExplanationRetryScheduler scheduler(LlmProperties properties, LlmQuota quotaToUse, String minAge) {
         ExplanationService service = new ExplanationService(store, llm, quotaToUse);
-        return new ExplanationRetryScheduler(groups, tenants, service, transactionManager, properties, "PT24H", 50);
+        return new ExplanationRetryScheduler(groups, tenants, service, transactionManager, properties,
+                "PT24H", minAge, 50);
     }
 
     private Long newTenant() {
@@ -151,5 +157,18 @@ class ExplanationRetrySchedulerTest extends PostgresContainerSupport {
         scheduler(KEY_SET, quota).run();
 
         assertThat(TenantContext.get()).isEmpty();
+    }
+
+    @Test
+    void 방금_만든_그룹은_재시도하지_않는다() {
+        Long fresh = newGroup(newTenant());
+        Long aged = newGroup(newTenant());
+        owner.update("update error_group set first_seen_at = now() - interval '3 minutes' where id = ?", aged);
+
+        scheduler(KEY_SET, quota, "PT2M").run();
+
+        assertThat(llmCalls.get()).as("만든 지 2분이 지난 그룹만").isEqualTo(1);
+        assertThat(explanationOf(fresh)).as("방금 만든 그룹은 처리 스레드 몫").isNull();
+        assertThat(explanationOf(aged)).isEqualTo("설명");
     }
 }
