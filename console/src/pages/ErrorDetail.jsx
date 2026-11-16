@@ -12,6 +12,7 @@ import {
   teamPrefix,
 } from "../app/format";
 import { MessageCard } from "../components/MessageCard";
+import { useErrorActions } from "../hooks/useErrorActions";
 import { useErrorGroup } from "../hooks/useErrorGroup";
 
 const STACK_PREVIEW = 8; // 처음에 보여 주는 스택 줄 수
@@ -21,6 +22,9 @@ export function ErrorDetail() {
   const teamId = Number(params.teamId);
   const groupId = Number(params.groupId);
   const group = useErrorGroup(teamId, groupId);
+  // 훅은 아래 early return 보다 위에서 부른다 (부르는 순서가 바뀌면 안 된다)
+  const { changeStatus, giveFeedback } = useErrorActions(teamId, groupId);
+  const busy = changeStatus.isPending || giveFeedback.isPending;
   const backTo = `/teams/${teamId}/errors`;
 
   if (group.isPending) {
@@ -105,15 +109,43 @@ export function ErrorDetail() {
         </div>
       </dl>
 
-      {/* 모양만. 누르면 상태를 바꾸는 연결은 AI-100에서 한다 */}
+      {/* 열린 에러면 "해결로 표시 / 무시", 이미 닫았으면 "다시 열기". 서버 응답이 오면 상세·목록을 다시 불러와 반영한다 */}
       <div className="action-row">
-        <button type="button" className="button primary" disabled>
-          해결로 표시
-        </button>
-        <button type="button" className="button" disabled>
-          무시
-        </button>
+        {detail.status === "OPEN" ? (
+          <>
+            <button
+              type="button"
+              className="button primary"
+              disabled={busy}
+              onClick={() => changeStatus.mutate("RESOLVED")}
+            >
+              해결로 표시
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={busy}
+              onClick={() => changeStatus.mutate("IGNORED")}
+            >
+              무시
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="button primary"
+            disabled={busy}
+            onClick={() => changeStatus.mutate("OPEN")}
+          >
+            다시 열기
+          </button>
+        )}
       </div>
+      {changeStatus.isError && (
+        <p className="error-text" role="alert">
+          {changeStatus.error.message}
+        </p>
+      )}
 
       <section className="ai-card" aria-labelledby="ai-title">
         <div className="block-head">
@@ -141,22 +173,30 @@ export function ErrorDetail() {
         {detail.aiExplanation && (
           <div className="feedback-row">
             <span className="muted">도움이 됐나요?</span>
-            {/* 모양만. 연결은 AI-100 */}
             <button
               type="button"
               className={detail.feedback === "UP" ? "button chosen" : "button"}
-              disabled
+              aria-pressed={detail.feedback === "UP"}
+              disabled={busy}
+              onClick={() => giveFeedback.mutate("UP")}
             >
               도움 됨
             </button>
             <button
               type="button"
               className={detail.feedback === "DOWN" ? "button chosen" : "button"}
-              disabled
+              aria-pressed={detail.feedback === "DOWN"}
+              disabled={busy}
+              onClick={() => giveFeedback.mutate("DOWN")}
             >
               아님
             </button>
           </div>
+        )}
+        {giveFeedback.isError && (
+          <p className="error-text" role="alert">
+            {giveFeedback.error.message}
+          </p>
         )}
       </section>
 

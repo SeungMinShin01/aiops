@@ -99,3 +99,27 @@ export function getErrorGroups(teamId, filter) {
 export function getErrorGroup(teamId, groupId) {
   return request("GET", `/api/teams/${teamId}/errors/${groupId}`);
 }
+
+/**
+ * PATCH /api/teams/{teamId}/errors/{groupId}/status (AI-97). 바뀐 값만 돌려준다
+ * 400 허용값 밖, 404 없거나 다른 팀 그룹
+ * @param {number} teamId
+ * @param {number} groupId
+ * @param {'OPEN'|'RESOLVED'|'IGNORED'} status
+ * @returns {Promise<{id: number, status: 'OPEN'|'RESOLVED'|'IGNORED'}>}
+ */
+export function changeErrorStatus(teamId, groupId, status) {
+  return request("PATCH", `/api/teams/${teamId}/errors/${groupId}/status`, { status });
+}
+
+/**
+ * PUT /api/teams/{teamId}/errors/{groupId}/feedback (AI-97). 같은 값을 다시 보내도 같은 결과
+ * 400 허용값 밖, 404 없거나 다른 팀 그룹, 409 AI 설명이 아직 없는 그룹
+ * @param {number} teamId
+ * @param {number} groupId
+ * @param {'UP'|'DOWN'} feedback
+ * @returns {Promise<{id: number, feedback: 'UP'|'DOWN'}>}
+ */
+export function giveErrorFeedback(teamId, groupId, feedback) {
+  return request("PUT", `/api/teams/${teamId}/errors/${groupId}/feedback`, { feedback });
+}
