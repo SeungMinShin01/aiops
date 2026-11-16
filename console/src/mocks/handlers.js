@@ -1,6 +1,5 @@
 import { http, HttpResponse } from "msw";
 import { errorDetail, errorGroups } from "./errorData";
-import { adminOverview } from "./adminData";
 
 // 가짜 응답 (dev:mock 전용). 팀 1은 조장(OWNER), 팀 2·3은 팀원(MEMBER) 세트.
 // 팀원이 조장 전용 API를 부르면 서버처럼 403을 돌려준다 (화면이 "권한 없음"을 그리는지 보려고)
@@ -241,6 +240,10 @@ export const handlers = [
   http.get("/api/teams/:teamId/keys", ({ params }) =>
     HttpResponse.json(keys[params.teamId] ?? []),
   ),
+  // 관리자용 키 목록 (AI-101). 팀용 목록은 소속이어야 열려서 관리자는 이 주소로 본다. 같은 keys 저장소를 쓴다
+  http.get("/api/admin/teams/:teamId/keys", ({ params }) =>
+    HttpResponse.json(keys[params.teamId] ?? []),
+  ),
   http.post("/api/admin/teams/:teamId/keys", async ({ params, request }) => {
     const { env } = await request.json();
     const raw =
@@ -351,7 +354,4 @@ export const handlers = [
   http.put("/api/teams/:teamId/errors/:groupId/feedback", ({ params, request }) =>
     giveFeedback(params, request),
   ),
-
-  // 관리자 전체 현황 (AI-86)
-  http.get("/api/admin/overview", () => HttpResponse.json(adminOverview())),
 ];
