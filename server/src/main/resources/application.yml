@@ -83,6 +83,7 @@ aiops:
     timeout: 20s                # 연결·읽기 타임아웃
     daily-limit: 200            # AI-57 : 하루 LLM 호출 상한 (전체 팀 합산). 넘으면 설명 없이 진행
     retry-window: PT24H         # AI-57 : 이 시간 안에 생긴 그룹만 설명을 다시 시도
+    retry-min-age: PT2M         # AI-57 : 만든 지 이 시간이 지난 그룹만 다시 시도 (방금 생긴 그룹은 처리 스레드가 설명 중)
     retry-batch: 50             # AI-57 : 한 주기에 다시 시도하는 최대 그룹 수
     retry-interval: PT5M        # AI-57 : 재시도 주기 (이전 실행이 끝난 뒤)
     retry-initial-delay: PT2M   # AI-57 : 서버 시작 후 첫 재시도까지
