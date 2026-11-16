@@ -1,0 +1,90 @@
+/* 팀 설정 화면 (AI-106). 모바일 우선, 색은 base.css 변수 */
+.settings { display: flex; flex-direction: column; gap: 16px; }
+
+.card {
+  padding: 16px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.section-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.section-title { margin: 0; font-size: 17px; }
+.subsection-title { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+
+.button.small { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.button.danger { border-color: #b42318; background: #b42318; color: #ffffff; font-weight: 700; }
+.button.danger:hover { color: #ffffff; background: #8f1c13; }
+.button:disabled { opacity: 0.6; cursor: default; }
+
+.error-text { margin: 0; color: #b42318; }
+.warning-box { margin: 0; padding: 10px 12px; border-radius: var(--radius); background: #fbe9d9; color: #8a3d0c; }
+.success-box { margin: 0; padding: 10px 12px; border-radius: var(--radius); background: #e3f4e8; color: #17603a; }
+
+/* 연결 상태 배지 */
+.conn-row { display: flex; flex-direction: column; gap: 8px; }
+.conn-badge {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+.conn-dot { flex: 0 0 10px; height: 10px; border-radius: 50%; background: var(--line-strong); }
+.conn-connected .conn-dot { background: #1a7f45; }
+.conn-not_connected .conn-dot { background: #c2410c; }
+.conn-text { display: flex; flex-direction: column; min-width: 0; }
+
+/* 목록 한 줄 (키·링크·팀원) */
+.row-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.row {
+  display: grid; grid-template-columns: 1fr auto; grid-template-areas: "main action" "sub action";
+  align-items: center; gap: 2px 12px; padding: 10px 0; border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+.row > .row-main { grid-area: main; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.row > .row-sub { grid-area: sub; font-size: 13px; }
+.row > .button { grid-area: action; }
+.row.revoked .row-main { color: var(--muted); }
+.row code { overflow-wrap: anywhere; }
+.tag { padding: 1px 8px; border-radius: 999px; background: var(--side); font-size: 12px; color: var(--muted); }
+
+/* 초대 링크 */
+.inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.inline-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.inline-form input {
+  width: 96px; min-height: 36px; padding: 0 8px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius); font: inherit;
+}
+.created-link { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--radius); background: var(--bg); }
+.created-link code { overflow-wrap: anywhere; }
+.copy-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* 처음 연결하기 안내 */
+.guide { border-color: var(--accent); }
+.guide-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.copy-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.copy-row code, .copy-row pre {
+  flex: 1 1 220px; min-width: 0; margin: 0; padding: 8px 10px;
+  border-radius: var(--radius); background: var(--bg); font-size: 13px;
+  overflow-x: auto; white-space: pre;
+}
+
+/* 확인 창·키 원문 창 */
+.dialog-backdrop {
+  position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(22, 25, 29, 0.45);
+}
+.dialog {
+  width: 100%; max-width: 440px; padding: 20px; background: var(--card); border-radius: 12px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.dialog-title { margin: 0; font-size: 18px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.secret-box {
+  display: block; padding: 10px 12px; border-radius: var(--radius); background: var(--bg);
+  font-size: 13px; overflow-wrap: anywhere; user-select: all;
+}
+
+@media (min-width: 721px) {
+  .conn-row { flex-direction: row; }
+  .conn-badge { flex: 1 1 0; }
+  .card { padding: 20px; }
+  .card > .button { align-self: flex-start; }   /* 넓은 화면에서는 버튼이 카드 폭만큼 늘어나지 않게 */
+}

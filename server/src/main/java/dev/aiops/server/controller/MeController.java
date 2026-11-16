@@ -36,17 +36,21 @@ public class MeController {
                         user.getLogin(),
                         user.getName(),
                         adminProperties.isAdmin(user.getGithubId()),
+                        user.getDiscordUserId() != null,
                         appUserService.teamsOf(user.getId()).stream()
-                                .map(t -> new TeamItem(t.teamId(), t.name(), t.role().name()))
+                                .map(t -> new TeamItem(t.teamId(), t.name(), t.role().name(),
+                                        t.discordStatus() == null ? null : t.discordStatus().name()))
                                 .toList())))
                 // 세션은 있는데 사용자 행이 지워졌으면 다시 로그인하게 한다
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 
+    /** discordConnected: 내가 디스코드를 연결했는지 (AI-106, D-110). 디스코드 사용자 번호 자체는 넣지 않는다 */
     public record MeResponse(long userId, String login, String name,
-            @JsonProperty("isAdmin") boolean isAdmin, List<TeamItem> teams) {
+            @JsonProperty("isAdmin") boolean isAdmin, boolean discordConnected, List<TeamItem> teams) {
     }
 
-    public record TeamItem(long teamId, String name, String role) {
+    /** discordStatus: 그 팀 채널 준비 상태 NONE/READY/FAILED/SUSPENDED (AI-106, D-110) */
+    public record TeamItem(long teamId, String name, String role, String discordStatus) {
     }
 }

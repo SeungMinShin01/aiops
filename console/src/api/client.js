@@ -53,9 +53,13 @@ export async function request(method, path, body) {
     }
     const status = error.response.status;
     if (status === 401) {
-      // 세션 없음·만료 → 로그인 화면으로
-      if (!window.location.pathname.startsWith("/login")) {
-        window.location.assign("/login");
+      // 세션 없음·만료 → 로그인 화면으로. 보던 주소를 next로 넘겨 로그인 후 돌아오게 한다 (초대 링크 등, AI-106)
+      const here = window.location.pathname;
+      if (!here.startsWith("/login")) {
+        const next = here + window.location.search;
+        window.location.assign(
+          next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`,
+        );
       }
       throw new ApiError(401, "로그인이 필요합니다");
     }
