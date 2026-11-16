@@ -14,4 +14,6 @@ export const queryKeys = {
   error: (teamId, groupId) => ["teams", teamId, "error", groupId],
   // 관리자 데이터는 ['admin', ...]으로 시작
   adminOverview: ["admin", "overview"],
+  adminCohorts: ["admin", "cohorts"],
+  adminKeys: (teamId) => ["admin", "teams", teamId, "keys"],
 };
