@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 키 캐시가 따뜻한 상태에서 폐기 → 즉시 401 (AI-74). 진짜 DB + TenantFilter + 수집 API.
+ * 키 캐시가 따뜻한 상태에서 폐기 → 즉시 401 (AI-74). 진짜 DB + ApiKeyAuthFilter + 수집 API.
  */
 @SpringBootTest
 class ApiKeyRevokeTest extends PostgresContainerSupport {
@@ -36,7 +36,6 @@ class ApiKeyRevokeTest extends PostgresContainerSupport {
             "{\"env\":\"local\",\"app\":{\"name\":\"t\",\"hostHash\":\"h1\"},\"events\":[],\"droppedCount\":0}";
 
     @Autowired WebApplicationContext context;
-    @Autowired TenantFilter tenantFilter;
     @Autowired IngestBodySizeFilter bodySizeFilter;
     @Autowired TenantRepository tenants;
     @Autowired ApiKeyRepository apiKeys;
@@ -49,7 +48,7 @@ class ApiKeyRevokeTest extends PostgresContainerSupport {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
-                .addFilters(tenantFilter, bodySizeFilter)
+                .addFilters(new ApiKeyAuthFilter(resolver), bodySizeFilter)
                 .build();
         new JdbcTemplate(new DriverManagerDataSource(jdbcUrl(), OWNER_USER, OWNER_PASSWORD))
                 .execute("TRUNCATE error_event, error_group, app_snapshot, ingest_stat, heartbeat_last, api_key, tenant RESTART IDENTITY CASCADE");

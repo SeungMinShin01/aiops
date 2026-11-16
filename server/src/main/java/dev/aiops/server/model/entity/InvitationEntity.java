@@ -54,4 +54,9 @@ public class InvitationEntity {
         this.createdBy = createdBy;
         this.createdAt = Instant.now();
     }
+
+    /** 링크 무효화 (AI-89). 지우지 않고 만료 시각만 지금으로 — 기록은 남는다 */
+    public void expireNow() {
+        this.expiresAt = Instant.now();
+    }
 }

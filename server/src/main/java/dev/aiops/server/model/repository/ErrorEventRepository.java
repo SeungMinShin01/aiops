@@ -3,12 +3,30 @@ package dev.aiops.server.model.repository;
 import dev.aiops.server.model.entity.ErrorEventEntity;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ErrorEventRepository extends JpaRepository<ErrorEventEntity, Long> {
+    // AI-56 : 그 그룹의 가장 최근 이벤트 1건 (LLM 설명의 대표 이벤트). 팀은 RLS가 거른다
+    Optional<ErrorEventEntity> findFirstByGroupIdOrderByReceivedAtDescIdDesc(Long groupId);
+
+    // AI-96 : 그 그룹의 최근 원본을 최신순으로 pageable 크기(N건)만큼. N 은 설정값(aiops.console.recent-events)이라 PageRequest 로 받는다
+    List<ErrorEventEntity> findByGroupIdOrderByReceivedAtDesc(Long groupId, Pageable pageable);
+
+    // AI-96 : 그 그룹의 날짜별 원본 개수 (한국 시간 날짜, since 이후만). 결과 한 줄 = ["2026-11-15", 개수]
+    // 집계는 DB 의 GROUP BY 가 한다 (자바 루프로 세지 않음). 보관 삭제로 사라진 날은 행이 없다 → 서비스가 0으로 채움
+    @Query(value = """
+            SELECT to_char(received_at AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day, count(*)
+            FROM error_event
+            WHERE group_id = :groupId AND received_at >= CAST(:since AS timestamptz)
+            GROUP BY 1
+            """, nativeQuery = true)
+    List<Object[]> countByDay(@Param("groupId") Long groupId, @Param("since") Instant since);
 
     // AI-53 : 처리 안 된 이벤트 중 cutoff 보다 오래된 것을 받은 순서로 batch 개까지. 결과 한 줄 = [tenant_id, id]
     // 팀 경계를 넘는 관리용 조회 (11단계 RLS 가 켜지면 팀별 조회로 바꿈)

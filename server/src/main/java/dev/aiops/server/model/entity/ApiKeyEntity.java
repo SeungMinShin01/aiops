@@ -45,7 +45,7 @@ public class ApiKeyEntity {
     @Column(name = "created_by")
     private Long createdBy;
 
-    // 키 캐시(AI-74)가 있을 때만 1분에 최대 1회 갱신 (채우는 코드는 14단계)
+    // 키 캐시(AI-74)가 비었을 때(DB 조회 시)만 갱신 → 키마다 1분에 최대 1회 (AI-88, ApiKeyResolver)
     @Column(name = "last_used_at", columnDefinition = "timestamptz")
     private Instant lastUsedAt;
 
@@ -54,6 +54,13 @@ public class ApiKeyEntity {
         this.keyHash = keyHash;
         this.env = env;
         this.createdAt = Instant.now();
+    }
+
+    // 관리자 발급 (AI-88): 표시용 앞자리·발급자까지
+    public ApiKeyEntity(Long tenantId, String keyHash, String env, String keyPrefix, Long createdBy) {
+        this(tenantId, keyHash, env);
+        this.keyPrefix = keyPrefix;
+        this.createdBy = createdBy;
     }
 
     public void revoke() {

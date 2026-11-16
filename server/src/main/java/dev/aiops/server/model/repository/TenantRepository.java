@@ -9,7 +9,17 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 public interface TenantRepository extends JpaRepository<TenantEntity, Long> {
+
+    // ---- 관리자 팀 일괄 생성·목록 (AI-83). 고정 조건만 ----
+
+    // 같은 기수 안에 같은 이름의 팀이 이미 있는지
+    boolean existsByCohortIdAndName(Long cohortId, String name);
+
+    // 기수의 팀 전부
+    List<TenantEntity> findAllByCohortId(Long cohortId);
 
     // ---- 디스코드 자원 id 저장 (AI-92 DiscordProvisioner) ----
     // 자원 하나 만들 때마다 바로 저장한다 (짧은 트랜잭션, REQUIRES_NEW).

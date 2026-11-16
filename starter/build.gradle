@@ -21,8 +21,35 @@ dependencies {
     testImplementation 'org.springframework:spring-context'
     testImplementation 'org.springframework:spring-test'
     testImplementation 'ch.qos.logback:logback-classic'
+    // 안전성 테스트(AI-49)가 진짜 웹 앱을 띄운다 (테스트에서만. Starter 본체에는 들어가지 않음)
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc'
     // JsonWriter 왕복 테스트용 (테스트에서만. Starter 본체에는 들어가지 않음)
     testImplementation 'com.fasterxml.jackson.core:jackson-databind'
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// 안전성 테스트는 일반 test에서 빼고 따로 돌린다 (AI-49).
+// Starter의 상태(켜짐·꺼짐)는 JVM에 하나라서, 클래스마다 새 JVM이 필요하다
+tasks.named('test') {
+    filter {
+        excludeTestsMatching 'dev.aiops.starter.safety.*'
+    }
+}
+
+tasks.register('safetyTest', Test) {
+    description = '안전성 테스트 (AI-49). 클래스마다 새 JVM'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'dev.aiops.starter.safety.*'
+    }
+    forkEvery = 1
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('safetyTest')
 }

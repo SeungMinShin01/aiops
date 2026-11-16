@@ -1,0 +1,24 @@
+// 로컬 실행(bootRun) 때만 infra/local/.env를 읽어 환경변수로 넣는다.
+// 테스트·빌드·운영에는 영향 없음 (bootRun 작업에만 건다).
+// - 빈 값(KEY=)은 넣지 않는다 → yml의 기본값이 그대로 쓰인다
+// - 터미널에서 이미 넣은 환경변수가 있으면 그 값이 우선
+tasks.matching { it.name == 'bootRun' }.configureEach {
+    def envFile = rootProject.file('infra/local/.env')
+    if (envFile.exists()) {
+        envFile.readLines('UTF-8').each { line ->
+            def text = line.trim()
+            if (text.isEmpty() || text.startsWith('#') || !text.contains('=')) {
+                return
+            }
+            def idx = text.indexOf('=')
+            def key = text.substring(0, idx).trim()
+            def value = text.substring(idx + 1).trim()
+            if (value.length() >= 2 && value.startsWith('"') && value.endsWith('"')) {
+                value = value.substring(1, value.length() - 1)
+            }
+            if (!value.isEmpty() && System.getenv(key) == null) {
+                environment key, value
+            }
+        }
+    }
+}

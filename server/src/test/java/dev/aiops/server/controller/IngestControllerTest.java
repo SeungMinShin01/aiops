@@ -11,7 +11,8 @@ import dev.aiops.server.model.entity.TenantEntity;
 import dev.aiops.server.model.repository.ApiKeyRepository;
 import dev.aiops.server.model.repository.TenantRepository;
 import dev.aiops.server.security.ApiKeyHasher;
-import dev.aiops.server.security.TenantFilter;
+import dev.aiops.server.security.ApiKeyAuthFilter;
+import dev.aiops.server.security.ApiKeyResolver;
 import dev.aiops.server.support.PostgresContainerSupport;
 import java.util.Collections;
 import java.util.Map;
@@ -28,9 +29,9 @@ import org.springframework.web.context.WebApplicationContext;
 
 // 수집 창구(/v1/events, AI-31 · /v1/hello·/v1/heartbeat, AI-33)를 진짜 Postgres 로 검사.
 // V2(RLS) 이후 (AI-16에서 수정):
-// - 클래스 @Transactional 을 두지 않는다. 테스트 트랜잭션이 먼저 열리면 TenantFilter 가 팀을 넣기 전이라 set_config 가 안 들어가고 INSERT 가 RLS 에 막힌다
+// - 클래스 @Transactional 을 두지 않는다. 테스트 트랜잭션이 먼저 열리면 ApiKeyAuthFilter 가 팀을 넣기 전이라 set_config 가 안 들어가고 INSERT 가 RLS 에 막힌다
 // - 롤백이 없으므로 시작할 때 owner(RLS 무시)로 비우고, 결과 확인도 owner 로 읽는다
-// - 실제 서버처럼 TenantFilter 를 MockMvc 에 끼운다 (키 → 팀 → TenantContext)
+// - 실제 서버처럼 ApiKeyAuthFilter 를 MockMvc 에 끼운다 (키 → 팀 → TenantContext). AI-79: TenantFilter 삭제로 교체
 @SpringBootTest
 class IngestControllerTest extends PostgresContainerSupport {
 
@@ -38,7 +39,7 @@ class IngestControllerTest extends PostgresContainerSupport {
 
     @Autowired WebApplicationContext context;
     @Autowired IngestBodySizeFilter bodySizeFilter;   // 413 검문소 (MockMvc 에는 직접 끼워줘야 함)
-    @Autowired TenantFilter tenantFilter;             // 키 → 팀 (MockMvc 에는 직접 끼워줘야 함)
+    @Autowired ApiKeyResolver apiKeyResolver;         // 키 → 팀 (ApiKeyAuthFilter 는 빈이 아니라 직접 만들어 끼움)
     @Autowired TenantRepository tenants;
     @Autowired ApiKeyRepository apiKeys;
 
@@ -50,7 +51,7 @@ class IngestControllerTest extends PostgresContainerSupport {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
-                .addFilters(tenantFilter, bodySizeFilter)   // 실제 순서와 같게: 팀 필터(LOWEST-10) → 크기 필터
+                .addFilters(new ApiKeyAuthFilter(apiKeyResolver), bodySizeFilter)   // 실제 순서와 같게: 팀 필터(LOWEST-10) → 크기 필터
                 .build();
         owner = new JdbcTemplate(new DriverManagerDataSource(jdbcUrl(), OWNER_USER, OWNER_PASSWORD));
         owner.execute("TRUNCATE error_event, error_group, app_snapshot, ingest_stat, heartbeat_last, api_key, tenant RESTART IDENTITY CASCADE");

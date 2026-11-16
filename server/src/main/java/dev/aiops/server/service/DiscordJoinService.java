@@ -23,7 +23,7 @@ import java.util.List;
  * <p>
  * 디스코드 사용자 access_token은 이 클래스의 지역 변수로만 쓰고 끝낸다. 저장·로그·예외에 남기지 않는다 (D-070, 규칙 10).
  * 멤버십 확인은 백엔드에서 (콘솔 버튼 숨김은 편의일 뿐, 규칙 12의 취지).
- * 컨트롤러(/api/discord/connect·callback)는 12단계 로그인(세션 사용자) 이후에 붙인다.
+ * 컨트롤러: DiscordJoinController (/api/discord/connect·callback, 12단계 로그인 세션 사용자 기준).
  */
 @Service
 public class DiscordJoinService {

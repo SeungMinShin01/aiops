@@ -28,7 +28,7 @@ public class HelloService {
     }
 
     // AI-33 : hello 환경 정보 원본을 app_snapshot 에 1행 쌓고, 마지막 hello 시각(started_at)을 기록함
-    // 팀은 TenantFilter 가 키로 정해 TenantContext 에 넣은 값만 쓴다 (AI-73)
+    // 팀은 ApiKeyAuthFilter 가 키로 정해 TenantContext 에 넣은 값만 쓴다 (AI-73)
     @Transactional
     public void storeHello(String env, HelloRequest hello) {
         Long tenantId = TenantContext.require();

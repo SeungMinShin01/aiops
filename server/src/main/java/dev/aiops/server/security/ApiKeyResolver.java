@@ -1,6 +1,7 @@
 package dev.aiops.server.security;
 
 import dev.aiops.server.model.entity.ApiKeyEntity;
+import dev.aiops.server.model.entity.TenantStatus;
 import dev.aiops.server.model.repository.ApiKeyRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 // 요청 헤더의 키 원문 → "어느 팀, 어느 env" 로 바꾸는 곳. 인증 판단은 이 클래스 한 곳에만 둠
 // 폐기 키 거부와 캐시 무효화도 여기 한 곳 (AI-74, v0.2 2-4). 다른 곳에 키 검증을 복제하지 않는다
-@Component // 스프링이 이 클래스의 객체를 만들어서 관리 (TenantFilter 가 가져다 씀)
+@Component // 스프링이 이 클래스의 객체를 만들어서 관리 (ApiKeyAuthFilter 가 가져다 씀)
 public class ApiKeyResolver {
     // 이 클래스에서 로그를 찍는 도구
     private static final Logger log = LoggerFactory.getLogger(ApiKeyResolver.class);
@@ -60,15 +61,33 @@ public class ApiKeyResolver {
                     return new InvalidApiKeyException("invalid api key");
                 });
 
-        // 5. 정지된 팀(SUSPENDED)의 키도 거부 — tenant.status(V3)가 생기면 13단계에서 이 자리에 조건 추가
+        // 5. 정지된 팀(SUSPENDED)의 키도 거부 (AI-85). 정지 판단은 여기 한 곳에서만 하고 api_key 에 플래그를 복사하지 않는다
+        //    tenant 는 RLS 가 없어 팀을 정하기 전에도 읽을 수 있다. 캐시에는 통과한 결과만 들어가므로
+        //    팀이 정지되면 AdminTeamService.suspend 가 커밋 뒤에 그 팀 키를 evict 한다 (안 하면 최대 60초 동안 살아 있음)
+        //    없는 키와 똑같은 메시지를 써서 "정지됐다"는 사실을 키 주인 아닌 쪽에 알리지 않는다
+        boolean suspended = apiKeyRepository.findTenantStatus(key.getTenantId())
+                .filter(status -> status == TenantStatus.SUSPENDED)
+                .isPresent();
+        if (suspended) {
+            log.warn("api key rejected: team suspended teamId={} hash={}", key.getTenantId(), keyHash.substring(0, 8));
+            throw new InvalidApiKeyException("invalid api key");
+        }
 
-        // 6. 통과: 필요한 값만 꺼내서 결과 상자에 담아 캐시에 넣고 돌려줌
+        // 6. 마지막 사용 시각 (AI-88). 캐시가 비었을 때만 여기 오므로 키마다 1분(캐시 TTL)에 최대 1번 쓴다.
+        //    기록 실패가 수집을 막으면 안 된다
+        try {
+            apiKeyRepository.touchLastUsed(key.getId(), java.time.Instant.now());
+        } catch (RuntimeException e) {
+            log.warn("last_used_at 갱신 실패 keyId={}", key.getId());
+        }
+
+        // 7. 통과: 필요한 값만 꺼내서 결과 상자에 담아 캐시에 넣고 돌려줌
         ResolvedKey resolved = new ResolvedKey(key.getTenantId(), key.getEnv(), key.getId());
         cache.put(keyHash, resolved);
         return resolved;
     }
 
-    // 키 폐기 커밋 뒤 호출 (ApiKeyService.revoke). 그 키로 오는 다음 요청은 DB 를 다시 봐서 401
+    // 키 폐기·팀 정지 커밋 뒤 호출 (ApiKeyService.revoke, AdminTeamService.suspend). 그 키로 오는 다음 요청은 DB 를 다시 봐서 401
     public void evict(String keyHash) {
         cache.evict(keyHash);
     }
