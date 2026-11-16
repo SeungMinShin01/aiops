@@ -24,7 +24,7 @@ import java.util.List;
  * GitHub 로그인 성공 (AI-78).
  * 1. GitHub 속성(id, login, name)으로 app_user upsert
  * 2. 세션의 인증을 우리 AppUserPrincipal로 교체 → 이후 코드는 GitHub 속성이 아니라 우리 id를 쓴다
- * 3. / (콘솔 루트)로 redirect
+ * 3. 로그인 시작 때 세션에 둔 next(같은 도메인 경로, AI-106)로 redirect. 없거나 안전하지 않으면 / (콘솔 루트)
  * GitHub access token은 여기서 꺼내지도 저장하지도 않는다.
  */
 @Component
@@ -62,6 +62,6 @@ public class GithubLoginSuccessHandler implements AuthenticationSuccessHandler {
         holder.setContext(context);
         repository.saveContext(context, request, response);
 
-        response.sendRedirect("/");
+        response.sendRedirect(LoginNext.pop(request));
     }
 }
