@@ -1,8 +1,8 @@
 import { createBrowserRouter, Navigate } from "react-router";
-import { ComingSoon } from "./components/ComingSoon";
 import { PlainLayout } from "./components/PlainLayout";
 import { RequireLogin } from "./components/RequireLogin";
 import { TeamLayout } from "./components/TeamLayout";
+import { Admin } from "./pages/Admin";
 import { ErrorDetail } from "./pages/ErrorDetail";
 import { ErrorList } from "./pages/ErrorList";
 import { Forbidden } from "./pages/Forbidden";
@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
       {
         element: <PlainLayout />,
         children: [
-          { path: "/admin", element: <ComingSoon title="관리자" /> },
+          { path: "/admin", element: <Admin /> },
           { path: "/invite/:token", element: <Invite /> },
         ],
       },
