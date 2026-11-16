@@ -118,6 +118,16 @@ const randomKeyBody = () =>
   Math.random().toString(36).slice(2, 10) +
   Math.random().toString(36).slice(2, 10);
 
+// 상태·평가 바꾸기 흉내 (AI-97). errorGroups()·errorDetail()은 부를 때마다 새로 만들기 때문에
+// 바뀐 값을 여기에 기억해 두었다가 목록·상세 응답에 덧씌운다 (화면이 바뀐 결과를 보게)
+const changedStatus = new Map(); // groupId → 'OPEN' | 'RESOLVED' | 'IGNORED'
+const changedFeedback = new Map(); // groupId → 'UP' | 'DOWN'
+const STATUSES = ["OPEN", "RESOLVED", "IGNORED"];
+const FEEDBACKS = ["UP", "DOWN"];
+
+const withStatus = (group) =>
+  changedStatus.has(group.id) ? { ...group, status: changedStatus.get(group.id) } : group;
+
 // GET /api/teams/:teamId/errors 흉내. 서버(ErrorGroupController)와 같은 조건·같은 응답 모양
 function listErrors(request) {
   const url = new URL(request.url);
@@ -129,7 +139,7 @@ function listErrors(request) {
   const size = Number(url.searchParams.get("size") ?? 20);
   const fromTime = from ? new Date(`${from}T00:00:00`).getTime() : 0;
 
-  const filtered = errorGroups().filter(
+  const filtered = errorGroups().map(withStatus).filter(
     (group) =>
       (!env || group.env === env) &&
       (!status || group.status === status) &&
@@ -157,7 +167,42 @@ function oneError(groupId) {
   if (!detail) {
     return HttpResponse.json({ error: "group_not_found" }, { status: 404 });
   }
-  return HttpResponse.json(detail);
+  return HttpResponse.json({
+    ...withStatus(detail),
+    feedback: changedFeedback.get(detail.id) ?? detail.feedback,
+  });
+}
+
+// PATCH /api/teams/:teamId/errors/:groupId/status 흉내. 서버처럼 허용값 밖은 400, 없으면 404
+async function changeStatus(params, request) {
+  const groupId = Number(params.groupId);
+  const { status } = await request.json();
+  if (!errorDetail(groupId)) {
+    return HttpResponse.json({ error: "group_not_found" }, { status: 404 });
+  }
+  if (!STATUSES.includes(status)) {
+    return HttpResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
+  changedStatus.set(groupId, status);
+  return HttpResponse.json({ id: groupId, status });
+}
+
+// PUT /api/teams/:teamId/errors/:groupId/feedback 흉내. 설명이 없는 그룹은 서버처럼 409
+async function giveFeedback(params, request) {
+  const groupId = Number(params.groupId);
+  const { feedback } = await request.json();
+  const detail = errorDetail(groupId);
+  if (!detail) {
+    return HttpResponse.json({ error: "group_not_found" }, { status: 404 });
+  }
+  if (!FEEDBACKS.includes(feedback)) {
+    return HttpResponse.json({ error: "invalid_request" }, { status: 400 });
+  }
+  if (!detail.aiExplanation) {
+    return HttpResponse.json({ error: "no_explanation" }, { status: 409 });
+  }
+  changedFeedback.set(groupId, feedback);
+  return HttpResponse.json({ id: groupId, feedback });
 }
 
 export const handlers = [
@@ -298,6 +343,14 @@ export const handlers = [
   
   // 에러 상세 (AI-96)
   http.get("/api/teams/:teamId/errors/:groupId", ({ params }) => oneError(params.groupId)),
+
+  // 상태 변경·AI 설명 평가 (AI-97, 연결은 AI-100)
+  http.patch("/api/teams/:teamId/errors/:groupId/status", ({ params, request }) =>
+    changeStatus(params, request),
+  ),
+  http.put("/api/teams/:teamId/errors/:groupId/feedback", ({ params, request }) =>
+    giveFeedback(params, request),
+  ),
 
   // 관리자 전체 현황 (AI-86)
   http.get("/api/admin/overview", () => HttpResponse.json(adminOverview())),

@@ -7,6 +7,8 @@ export const queryKeys = {
   keys: (teamId) => ["teams", teamId, "keys"],
   invites: (teamId) => ["teams", teamId, "invites"],
   members: (teamId) => ["teams", teamId, "members"],
+  // 한 팀의 에러 목록 전부 (조건이 달라도 한 번에 다시 불러오려고 앞부분만 쓴다. 상태를 바꾼 뒤 목록을 새로 고칠 때, AI-100)
+  errorLists: (teamId) => ["teams", teamId, "errors"],
   // 조건(filter)이 키에 들어 있어서, 조건을 바꾸면 따로 불러오고 따로 기억한다
   errors: (teamId, filter) => ["teams", teamId, "errors", filter],
   error: (teamId, groupId) => ["teams", teamId, "error", groupId],
