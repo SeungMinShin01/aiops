@@ -1,6 +1,7 @@
 package dev.aiops.server.notify;
 
 import dev.aiops.server.model.entity.ErrorGroupEntity;
+import dev.aiops.server.model.entity.GroupStatus;
 import dev.aiops.server.model.entity.TenantEntity;
 import dev.aiops.server.model.entity.TenantStatus;
 import dev.aiops.server.model.repository.ErrorGroupRepository;
@@ -64,6 +65,16 @@ public class DiscordWebhookNotifier implements Notifier {
 
     @Override
     public void notifyNewGroup(Long tenantId, Long groupId) {
+        send(tenantId, groupId, false);
+    }
+
+    // AI-97 : 다시 열린 그룹. 보내는 길(채널·정지·local 끔·분당 제한)은 새 그룹과 같고 제목만 다르다
+    @Override
+    public void notifyReopenedGroup(Long tenantId, Long groupId) {
+        send(tenantId, groupId, true);
+    }
+
+    private void send(Long tenantId, Long groupId, boolean reopened) {
         String env = null;
         try {
             ErrorGroupEntity group = groups.findById(groupId).orElse(null);
@@ -72,6 +83,12 @@ public class DiscordWebhookNotifier implements Notifier {
                 return;
             }
             env = group.getFirstEnv();
+
+            // AI-97 : 무시(IGNORED)로 표시한 그룹은 알리지 않는다
+            if (group.getStatus() == GroupStatus.IGNORED) {
+                log.debug("알림 생략: 무시한 그룹 tenantId={} groupId={}", tenantId, groupId);
+                return;
+            }
 
             // 1. 채널 선택: env에 맞는 웹훅 (15단계 전까지는 로컬 DB에 psql로 직접 넣는다)
             //    env는 그룹의 env = 키의 env (Starter가 보낸 값이 아니라 수집 단계에서 키로 정한 값)
@@ -98,7 +115,7 @@ public class DiscordWebhookNotifier implements Notifier {
             }
 
             // 3. embed 조립 후 전송
-            Map<String, Object> body = embedBuilder.build(group);
+            Map<String, Object> body = embedBuilder.build(group, reopened);
             restClient.post()
                     .uri(URI.create(webhook))
                     .contentType(MediaType.APPLICATION_JSON)

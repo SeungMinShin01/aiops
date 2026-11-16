@@ -20,6 +20,13 @@ public interface Notifier {
     void notifyNewGroup(Long tenantId, Long groupId);
 
     /**
+     * 해결(RESOLVED)로 표시했던 그룹이 다시 발생해 OPEN 으로 돌아왔을 때 알린다 (AI-97).
+     * 기본 구현은 아무것도 하지 않는다 (알림을 안 쓰는 구현을 위해).
+     */
+    default void notifyReopenedGroup(Long tenantId, Long groupId) {
+    }
+
+    /**
      * 팀·env 채널에 짧은 글 1건을 보낸다. 채널 자동 생성 직후 "연결 확인" 메시지용 (AI-92).
      * 분당 제한·notify_local은 적용하지 않는다 (사람이 확인용으로 한 번 보내는 것).
      *

@@ -1,6 +1,8 @@
 package dev.aiops.server.model.repository;
 
 import dev.aiops.server.model.entity.ErrorGroupEntity;
+import dev.aiops.server.model.entity.Feedback;
+import dev.aiops.server.model.entity.GroupStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -32,4 +34,20 @@ public interface ErrorGroupRepository extends JpaRepository<ErrorGroupEntity, Lo
             LIMIT :batch
             """, nativeQuery = true)
     List<Long> findIdsMissingExplanation(@Param("since") Instant since, @Param("batch") int batch);
+
+    // AI-97 : 상태를 바꾼다. 바뀐 행 수를 돌려줌 (0이면 없는 그룹 또는 다른 팀 그룹 → RLS 가 걸러서 0)
+    // 엔티티를 고쳐 save 하지 않는 이유는 위와 같다 (횟수 등 다른 칸을 옛 값으로 덮지 않으려고 이 칸만 UPDATE)
+    @Modifying
+    @Query("UPDATE ErrorGroupEntity g SET g.status = :status WHERE g.id = :id")
+    int updateStatus(@Param("id") Long id, @Param("status") GroupStatus status);
+
+    // AI-97 : 설명이 있는 그룹에만 평가를 남긴다. 0이면 없는 그룹이거나 설명이 아직 없는 그룹 (서비스가 existsById 로 구분)
+    @Modifying
+    @Query("UPDATE ErrorGroupEntity g SET g.feedback = :feedback WHERE g.id = :id AND g.aiExplanation IS NOT NULL")
+    int updateFeedbackIfExplained(@Param("id") Long id, @Param("feedback") Feedback feedback);
+
+    // AI-97 : RESOLVED 인 그룹만 OPEN 으로 되돌린다. 1이면 "이번에 다시 열렸다" (동시에 두 건이 와도 한 건만 1을 받는다)
+    @Modifying
+    @Query("UPDATE ErrorGroupEntity g SET g.status = :open WHERE g.id = :id AND g.status = :resolved")
+    int reopenIfResolved(@Param("id") Long id, @Param("open") GroupStatus open, @Param("resolved") GroupStatus resolved);
 }
