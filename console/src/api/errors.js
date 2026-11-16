@@ -29,6 +29,33 @@ import { request } from "./client";
  * @property {number} days  최근 며칠
  * @property {'lastSeen,desc'|'count,desc'} sort
  * @property {number} page  0부터
+ *
+ * 최근 발생 한 건. 서버 dto/RecentEvent
+ * @typedef {object} RecentEvent
+ * @property {string} occurredAt  시각 (ISO 문자열)
+ * @property {string|null} message  마스킹된 메시지
+ * @property {string[]} stack   '클래스.메서드(파일:줄)' 목록 (최대 30줄)
+ * @property {string[]} causes  '예외타입: 메시지' 목록 (바깥 → 안쪽)
+ * @property {string|null} thread
+ * @property {'STARTUP'|'RUNTIME'|null} phase
+ *
+ * 에러 그룹 상세. 서버 dto/ErrorGroupDetail
+ * @typedef {object} ErrorGroupDetail
+ * @property {number} id
+ * @property {string} exceptionType
+ * @property {string|null} location
+ * @property {'local'|'prod'} env
+ * @property {'OPEN'|'RESOLVED'|'IGNORED'} status
+ * @property {number} count
+ * @property {string} firstSeen
+ * @property {string} lastSeen
+ * @property {string} fingerprint
+ * @property {string|null} aiExplanation  서버가 저장한 글 그대로. 없으면 null
+ * @property {string|null} aiExplainedAt
+ * @property {'UP'|'DOWN'|null} feedback
+ * @property {RecentEvent[]} recentEvents  최신순
+ * @property {{date: string, count: number}[]} dailyCounts  오래된 날 → 오늘
+ * @property {number} retentionDays  원본 보관 일수
  */
 
 export const PAGE_SIZE = 20;
@@ -61,4 +88,14 @@ export function getErrorGroups(teamId, filter) {
   params.set("page", String(filter.page));
   params.set("size", String(PAGE_SIZE));
   return request("GET", `/api/teams/${teamId}/errors?${params.toString()}`);
+}
+
+/**
+ * GET /api/teams/{teamId}/errors/{groupId}. 없거나 다른 팀 그룹이면 404
+ * @param {number} teamId
+ * @param {number} groupId
+ * @returns {Promise<ErrorGroupDetail>}
+ */
+export function getErrorGroup(teamId, groupId) {
+  return request("GET", `/api/teams/${teamId}/errors/${groupId}`);
 }
