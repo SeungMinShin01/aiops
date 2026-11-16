@@ -3,7 +3,9 @@ package dev.aiops.server.service;
 import dev.aiops.protocol.ErrorEvent;
 import dev.aiops.protocol.StackFrame;
 import dev.aiops.server.model.entity.ErrorEventEntity;
+import dev.aiops.server.model.entity.GroupStatus;
 import dev.aiops.server.model.repository.ErrorEventRepository;
+import dev.aiops.server.model.repository.ErrorGroupRepository;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -16,21 +18,29 @@ public class GroupingService {
 
     private final ErrorEventRepository errorEventRepository;
     private final GroupUpserter groupUpserter;
+    private final ErrorGroupRepository groupRepository;               // AI-97 : 재발 시 RESOLVED → OPEN
     private final ObjectMapper objectMapper;                          // JSON 글자 → 객체 변환기
     private final Fingerprinter fingerprinter = new Fingerprinter();  // 순수 계산기라 그냥 만들어 씀
 
     public GroupingService(ErrorEventRepository errorEventRepository,
                            GroupUpserter groupUpserter,
+                           ErrorGroupRepository groupRepository,
                            ObjectMapper objectMapper) {
         this.errorEventRepository = errorEventRepository;
         this.groupUpserter = groupUpserter;
+        this.groupRepository = groupRepository;
         this.objectMapper = objectMapper;
     }
 
+    // AI-97 : 알려야 하는 결과. reopened = 해결(RESOLVED)로 표시했던 그룹이 다시 발생해서 OPEN 으로 돌아왔다
+    public record Outcome(Long groupId, boolean reopened) {
+    }
+
     // AI-52 : 새 그룹이 만들어졌으면 그 그룹 id, 아니면 null. 이미 처리됐거나 없는 이벤트도 null
+    // AI-97 : 새 그룹이거나 다시 열린 그룹이면 Outcome, 그 밖에는 null (알릴 일 없음)
     // 예외가 나면 이 이벤트의 변경은 전부 취소되고(processed=false 유지) 호출한 쪽이 로그만 남김
     @Transactional
-    public Long groupOne(Long tenantId, Long eventId) {
+    public Outcome groupOne(Long tenantId, Long eventId) {
         ErrorEventEntity event = errorEventRepository.findById(eventId).orElse(null);
         // 없거나, 다른 팀 것이거나, 이미 처리됐으면 건너뜀 (중복 호출해도 안전)
         if (event == null || !event.getTenantId().equals(tenantId) || event.isProcessed()) {
@@ -64,7 +74,14 @@ public class GroupingService {
 
         // 이벤트에 그룹을 달고 processed=true (트랜잭션이 끝날 때 UPDATE 됨)
         event.assignGroup(result.groupId());
-        return result.isNew() ? result.groupId() : null;
+
+        if (result.isNew()) {
+            return new Outcome(result.groupId(), false);
+        }
+        // AI-97 : 기존 그룹이 다시 발생. RESOLVED 였다면 OPEN 으로 (한 번의 UPDATE 로 확인과 변경을 같이 해서, 동시에 와도 한 건만 "다시 열림")
+        boolean reopened = groupRepository.reopenIfResolved(
+                result.groupId(), GroupStatus.OPEN, GroupStatus.RESOLVED) > 0;
+        return reopened ? new Outcome(result.groupId(), true) : null;
     }
 
     // 위치 표시용: 팀 코드 첫 프레임 "클래스#메서드". 팀 프레임이 없으면 전체 첫 프레임

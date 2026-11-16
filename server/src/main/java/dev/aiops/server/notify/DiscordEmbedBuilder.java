@@ -32,6 +32,11 @@ public class DiscordEmbedBuilder {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Seoul"));
 
     public Map<String, Object> build(ErrorGroupEntity group) {
+        return build(group, false);
+    }
+
+    // AI-97 : reopened 이면 제목이 "재발 에러 · ..." (해결로 표시했던 그룹이 다시 발생)
+    public Map<String, Object> build(ErrorGroupEntity group, boolean reopened) {
         List<Map<String, Object>> fields = new ArrayList<>();
         fields.add(field("위치", group.getTopFrame(), false));
         fields.add(field("env", group.getFirstEnv(), true));
@@ -40,7 +45,8 @@ public class DiscordEmbedBuilder {
         fields.addAll(explanationFields(group.getAiExplanation()));
 
         Map<String, Object> embed = new LinkedHashMap<>();
-        embed.put("title", truncate("새 에러 · " + simpleName(group.getExceptionType()), TITLE_MAX));
+        String label = reopened ? "재발 에러 · " : "새 에러 · ";
+        embed.put("title", truncate(label + simpleName(group.getExceptionType()), TITLE_MAX));
         embed.put("color", COLOR_RED);
         embed.put("fields", fields);
 
