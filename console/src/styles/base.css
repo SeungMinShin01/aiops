@@ -214,6 +214,12 @@ a:hover { color: var(--accent-ink); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+
+/* 관리자 현황 */
+.admin-table { min-width: 960px; }
+.cell-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.button.compact { min-height: 36px; padding: 0 12px; font-size: 13px; }
+
 /* 넓은 화면: 목록이 왼쪽에 서고, 접으면 네모만 남는다 */
 @media (min-width: 721px) {
   .topbar-menu { display: none; }
