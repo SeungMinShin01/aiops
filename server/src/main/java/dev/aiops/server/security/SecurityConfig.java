@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -49,6 +50,8 @@ public class SecurityConfig {
                         .loginPage("/login") // 로그인 화면은 콘솔이 그린다 (Spring 기본 로그인 페이지 생성 끔)
                         .successHandler(successHandler)
                         .failureHandler(failureHandler))
+                // AI-106 : GitHub로 보내기 직전에 ?next= (로그인 후 돌아갈 경로)를 검사해서 세션에 둔다
+                .addFilterBefore(new LoginNext(), OAuth2AuthorizationRequestRedirectFilter.class)
                 .logout(l -> l
                         .logoutUrl("/api/logout") // POST + CSRF 헤더 필요. 세션 무효화 + 세션 쿠키 삭제
                         .deleteCookies("AIOPS_SESSION")

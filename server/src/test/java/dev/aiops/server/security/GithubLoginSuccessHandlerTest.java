@@ -62,6 +62,22 @@ class GithubLoginSuccessHandlerTest {
     }
 
     @Test
+    void 로그인_시작_때_둔_next로_보내고_세션에서_지운다() throws Exception {
+        AppUserEntity saved = new AppUserEntity(256240676L, "hanwooya361", "조현우");
+        ReflectionTestUtils.setField(saved, "id", 7L);
+        when(service.upsertFromGithub(256240676L, "hanwooya361", "조현우")).thenReturn(saved);
+
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.getSession().setAttribute(LoginNext.SESSION_ATTR, "/invite/abc");
+        MockHttpServletResponse res = new MockHttpServletResponse();
+        handler.onAuthenticationSuccess(req, res,
+                githubToken(Map.of("id", 256240676, "login", "hanwooya361", "name", "조현우")));
+
+        assertThat(res.getRedirectedUrl()).isEqualTo("/invite/abc");
+        assertThat(req.getSession().getAttribute(LoginNext.SESSION_ATTR)).isNull();
+    }
+
+    @Test
     void id가_없으면_실패_화면으로_보내고_저장하지_않는다() throws Exception {
         Map<String, Object> attributes = new HashMap<>();
         attributes.put("login", "nobody");
