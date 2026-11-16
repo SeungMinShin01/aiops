@@ -7,4 +7,6 @@ export const queryKeys = {
   keys: (teamId) => ["teams", teamId, "keys"],
   invites: (teamId) => ["teams", teamId, "invites"],
   members: (teamId) => ["teams", teamId, "members"],
+  // 조건(filter)이 키에 들어 있어서, 조건을 바꾸면 따로 불러오고 따로 기억한다
+  errors: (teamId, filter) => ["teams", teamId, "errors", filter],
 };
