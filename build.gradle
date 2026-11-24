@@ -5,8 +5,10 @@ plugins {
 }
 
 allprojects {
-    group = 'com.github.seungminshin01.aiops'
-    version = '0.1.0-SNAPSHOT'
+    // JitPack 규칙: group 은 com.github.<GitHub 사용자>. 받는 쪽 주소(com.github.SeungMinShin01.aiops:starter:태그)는 JitPack 이 만든다
+    group = 'com.github.SeungMinShin01'
+    // JitPack 이 빌드할 때 -PreleaseVersion=<태그> 로 넘긴다 (jitpack.yml). 평소 개발 빌드는 SNAPSHOT
+    version = findProperty('releaseVersion') ?: '0.1.0-SNAPSHOT'
 
     repositories {
         mavenCentral()
