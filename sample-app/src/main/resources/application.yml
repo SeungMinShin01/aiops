@@ -1,0 +1,15 @@
+server:
+  port: 8081 # 우리 서버(8080)와 같이 띄우기 위해
+
+spring:
+  application:
+    name: sample-app
+  datasource: # 로컬 Postgres(1단계)에 접속만 한다. 테이블은 쓰지 않는다
+    url: ${SAMPLE_DB_URL:jdbc:postgresql://localhost:5432/aiops}
+    username: ${SAMPLE_DB_USER:aiops_app}
+    password: ${SAMPLE_DB_PASSWORD:app_local}
+
+aiops:
+  api-key: ${AIOPS_KEY:} # 없으면 Starter는 경고 한 줄 남기고 꺼진다
+  env: local
+  endpoint: http://localhost:8080 # 로컬 서버로 보냄 (기본값은 운영 주소)

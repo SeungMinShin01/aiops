@@ -1,0 +1,4 @@
+# 쉘 스크립트와 gradlew는 항상 LF (Linux 컨테이너·CI에서 실행되므로)
+*.sh   text eol=lf
+gradlew text eol=lf
+*.bat  text eol=crlf

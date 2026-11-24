@@ -1,0 +1,35 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version "${springBootVersion}" apply false
+    id 'io.spring.dependency-management' version "${dependencyManagementVersion}" apply false
+}
+
+allprojects {
+    // JitPack 규칙: group 은 com.github.<GitHub 사용자>. 받는 쪽 주소(com.github.SeungMinShin01.aiops:starter:태그)는 JitPack 이 만든다
+    group = 'com.github.SeungMinShin01'
+    // JitPack 이 빌드할 때 -PreleaseVersion=<태그> 로 넘긴다 (jitpack.yml). 평소 개발 빌드는 SNAPSHOT
+    version = findProperty('releaseVersion') ?: '0.1.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 17
+    }
+
+    tasks.named('test') {
+        useJUnitPlatform()
+    }
+}

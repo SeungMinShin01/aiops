@@ -1,0 +1,101 @@
+package dev.aiops.server.model.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import java.time.Instant;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "tenant")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class TenantEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    // 비밀값. 응답 DTO에 그대로 쓰지 않는다 (규칙 10). 알림(8단계)이 읽어야 해서 getter는 둔다
+    @Column(name = "discord_webhook_local", columnDefinition = "text")
+    private String discordWebhookLocal;
+
+    @Column(name = "discord_webhook_prod", columnDefinition = "text")
+    private String discordWebhookProd;
+
+    @Column(name = "notify_local", nullable = false)
+    private boolean notifyLocal = true;
+
+    @Column(name = "created_at", nullable = false, columnDefinition = "timestamptz")
+    private Instant createdAt;
+
+    // ---- V3 (콘솔) ----
+
+    @Column(name = "cohort_id")
+    private Long cohortId;
+
+    @Column(name = "project_end_date")
+    private LocalDate projectEndDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "text")
+    private TenantStatus status = TenantStatus.ACTIVE;
+
+    // 디스코드 자원 id (15단계 Provisioner가 채운다. 웹훅 주소는 위 V1 컬럼)
+    @Column(name = "discord_role_id", columnDefinition = "text")
+    private String discordRoleId;
+
+    @Column(name = "discord_category_id", columnDefinition = "text")
+    private String discordCategoryId;
+
+    @Column(name = "discord_channel_local_id", columnDefinition = "text")
+    private String discordChannelLocalId;
+
+    @Column(name = "discord_channel_prod_id", columnDefinition = "text")
+    private String discordChannelProdId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discord_status", nullable = false, columnDefinition = "text")
+    private DiscordStatus discordStatus = DiscordStatus.NONE;
+
+    // 채널 자동 생성 실패 단계 "<단계명>:<status>" (AI-92). 웹훅 url·토큰은 절대 넣지 않는다
+    @Column(name = "discord_error", length = 100)
+    private String discordError;
+
+    public TenantEntity(String name) {
+        this.name = name;
+        this.createdAt = Instant.now();
+    }
+
+    // AI-83 : 관리자가 기수 안에 만드는 팀. 조장 합류 전이라 WAITING_OWNER 로 시작 (discord_status = NONE, notify_local = true 는 기본값)
+    public TenantEntity(String name, Long cohortId, LocalDate projectEndDate) {
+        this(name);
+        this.cohortId = cohortId;
+        this.projectEndDate = projectEndDate;
+        this.status = TenantStatus.WAITING_OWNER;
+    }
+
+    /** 조장이 초대를 수락하면 팀을 연다 (AI-105). WAITING_OWNER일 때만 ACTIVE로 — 정지된 팀은 그대로 둔다 */
+    public void activateByOwner() {
+        if (this.status == TenantStatus.WAITING_OWNER) {
+            this.status = TenantStatus.ACTIVE;
+        }
+    }
+
+    // AI-85 : 관리자가 팀을 정지한다. 데이터·키는 그대로 두고 상태만 바꾼다
+    public void suspend() {
+        this.status = TenantStatus.SUSPENDED;
+    }
+
+    // AI-85 : 정지된 팀을 재개한다. 조장이 있으면 ACTIVE, 없으면 WAITING_OWNER (조장 없는 팀을 ACTIVE로 만들지 않기 위해)
+    // 정지 상태가 아니면 아무것도 하지 않는다
+    public void resume(boolean hasOwner) {
+        if (this.status == TenantStatus.SUSPENDED) {
+            this.status = hasOwner ? TenantStatus.ACTIVE : TenantStatus.WAITING_OWNER;
+        }
+    }
+}

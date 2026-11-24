@@ -1,0 +1,6 @@
+rootProject.name = 'aiops'
+
+include 'protocol'
+include 'starter'
+include 'server'
+include 'sample-app'

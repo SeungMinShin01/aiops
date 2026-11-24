@@ -1,0 +1,3 @@
+# 수집 API 수동 요청 (AI-34)
+
+Starter 없이 수집 API를 손으로 호출해 보는 IntelliJ HTTP 클라이언트 요청 모음임. 서버가 기대하는 요청 모양을 확인하는 용도임. 여는 방법은 서버를 local 프로필로 띄운 뒤(8080) IntelliJ에서 `ingest.http`를 열고, 오른쪽 위 환경 선택에서 `dev`를 고르고, "Run all"을 누르면 6개 요청이 차례로 실행되며 각 요청의 응답 코드 검사(202, 401, 401, 400, 413, 202)가 한 번에 표시됨. `dev` 환경의 주소와 키(로컬 시드 키)는 `http-client.env.json`에 있고 로컬 전용이라 커밋함. 운영 키나 주소는 `http-client.private.env.json`에 따로 두며 이 파일은 gitignore 대상이라 커밋하지 않음.

@@ -1,0 +1,85 @@
+apply plugin: 'java-library'                     // api 의존성을 쓰려면 필요
+apply plugin: 'io.spring.dependency-management'
+apply plugin: 'maven-publish'                    // JitPack 배포 (AI-63)
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+    }
+    // 배포되는 pom 에 Spring Boot BOM 을 싣지 않는다. 버전은 팀 앱이 정하는 것이고, Starter 는 끼어들지 않는다 (규칙 3)
+    generatedPomCustomization {
+        enabled = false
+    }
+}
+
+dependencies {
+    // 팀 앱이 protocol을 따로 넣지 않아도 컴파일 시점에 보이도록 api
+    api project(':protocol')
+
+    // 팀 앱이 이미 갖고 있는 것만 compileOnly. Starter는 새 의존성을 가져오지 않는다 (규칙 3)
+    // JSON은 자체 JsonWriter. Jackson은 쓰지 않는다 (D-085)
+    compileOnly 'org.springframework.boot:spring-boot'
+    compileOnly 'org.springframework:spring-context'
+    compileOnly 'ch.qos.logback:logback-classic'
+
+    testImplementation 'org.springframework.boot:spring-boot'
+    testImplementation 'org.springframework:spring-context'
+    testImplementation 'org.springframework:spring-test'
+    testImplementation 'ch.qos.logback:logback-classic'
+    // 안전성 테스트(AI-49)가 진짜 웹 앱을 띄운다 (테스트에서만. Starter 본체에는 들어가지 않음)
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    // JsonWriter 왕복 테스트용 (테스트에서만. Starter 본체에는 들어가지 않음)
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// 안전성 테스트는 일반 test에서 빼고 따로 돌린다 (AI-49).
+// Starter의 상태(켜짐·꺼짐)는 JVM에 하나라서, 클래스마다 새 JVM이 필요하다
+tasks.named('test') {
+    filter {
+        excludeTestsMatching 'dev.aiops.starter.safety.*'
+    }
+}
+
+tasks.register('safetyTest', Test) {
+    description = '안전성 테스트 (AI-49). 클래스마다 새 JVM'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching 'dev.aiops.starter.safety.*'
+    }
+    forkEvery = 1
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('safetyTest')
+}
+
+// jar 안에 버전을 적어 둔다. StarterVersion 이 이 값을 읽어 "[aiops] 비활성화됨: … (starter <버전>)" 에 쓴다
+tasks.named('jar') {
+    manifest {
+        attributes(
+            'Implementation-Title': 'aiops-starter',
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+
+// Gradle 전용 메타데이터(.module)는 올리지 않는다. JitPack 이 주소를 맞춰 주는 것은 pom 이라서,
+// 둘이 어긋나지 않게 pom 하나만 둔다 (JitPack 이슈 #4476)
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
+}

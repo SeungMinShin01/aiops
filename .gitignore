@@ -1,0 +1,32 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 비밀값
+.env
+*.env
+infra/prod/.env
+
+# 로그
+*.log
+
+# Claude
+.claude/
+claude-output/
+claudoutput/
+
+# AI-34 : 운영 키·주소용 HTTP 클라이언트 비밀 환경 파일
+http-client.private.env.json
