@@ -1,5 +1,22 @@
+apply plugin: 'maven-publish'   // JitPack 배포 (AI-63)
+
 // 순수 Java record만. 의존성 없음 (Spring·Jackson·Logback 금지)
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+
+// Gradle 전용 메타데이터(.module)는 올리지 않는다. JitPack 이 주소를 맞춰 주는 것은 pom 이라서,
+// 둘이 어긋나지 않게 pom 하나만 둔다 (JitPack 이슈 #4476)
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
 }
