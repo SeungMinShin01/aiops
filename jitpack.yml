@@ -1,0 +1,7 @@
+# JitPack 빌드 설정 (AI-63). protocol·starter 만 만든다 (server·sample-app·console 은 배포 대상이 아님)
+jdk:
+  - openjdk17
+install:
+  # $VERSION 은 JitPack 이 넣어 주는 값 (태그 이름 또는 커밋 해시).
+  # 테스트는 여기서 돌리지 않는다. 레포 CI 가 이미 돌린 커밋을 빌드하기 때문이다
+  - ./gradlew :protocol:publishToMavenLocal :starter:publishToMavenLocal -PreleaseVersion=$VERSION -x test

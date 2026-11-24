@@ -1,9 +1,14 @@
 apply plugin: 'java-library'                     // api 의존성을 쓰려면 필요
 apply plugin: 'io.spring.dependency-management'
+apply plugin: 'maven-publish'                    // JitPack 배포 (AI-63)
 
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+    }
+    // 배포되는 pom 에 Spring Boot BOM 을 싣지 않는다. 버전은 팀 앱이 정하는 것이고, Starter 는 끼어들지 않는다 (규칙 3)
+    generatedPomCustomization {
+        enabled = false
     }
 }
 
@@ -52,4 +57,29 @@ tasks.register('safetyTest', Test) {
 
 tasks.named('check') {
     dependsOn tasks.named('safetyTest')
+}
+
+// jar 안에 버전을 적어 둔다. StarterVersion 이 이 값을 읽어 "[aiops] 비활성화됨: … (starter <버전>)" 에 쓴다
+tasks.named('jar') {
+    manifest {
+        attributes(
+            'Implementation-Title': 'aiops-starter',
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+
+// Gradle 전용 메타데이터(.module)는 올리지 않는다. JitPack 이 주소를 맞춰 주는 것은 pom 이라서,
+// 둘이 어긋나지 않게 pom 하나만 둔다 (JitPack 이슈 #4476)
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
 }
